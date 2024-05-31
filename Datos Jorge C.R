@@ -1,7 +1,12 @@
 
-setwd("C:/UDLA/R/R")#diredtorio de R
 
 cat("\014")
+
+#install.packages("dplyr")
+#install.packages("ggplot2")
+#install.packages("lubridate")
+#install.packages("scales")
+#install.packages("prophet")
 
 # Cargar librerías necesarias
 library(dplyr)
@@ -9,10 +14,11 @@ library(ggplot2)
 library(lubridate)
 library(scales)
 library(prophet)
+library(reshape2)
 
+# Enlace raw al archivo de funciones en GitHub
+source("https://raw.githubusercontent.com/jkcrs1/R/main/funciones.R")
 
-# Carga archivo con funcones
-source("C:\\UDLA\\R\\R\\funciones.R") #leer un archivo con funciones
 
 
 # Permisos circulacion desde 2023 - today
@@ -188,8 +194,8 @@ max_count <- max(resumen_diario$cantidad_registros)
 # Crear el gráfico combinado
 ggplot(resumen_diario, aes(x=Fecha_Pago)) +
   geom_bar(aes(y=cantidad_registros), stat="identity", fill="lightblue", alpha=0.6) +
-  geom_line(aes(y=promedio_valor_pagado * (max_count / max(resumen_diario$promedio_valor_pagado))), color="red", size=1) +
-  geom_point(aes(y=promedio_valor_pagado * (max_count / max(resumen_diario$promedio_valor_pagado))), color="red", size=2) +
+  geom_line(aes(y=promedio_valor_pagado * (max_count / max(resumen_diario$promedio_valor_pagado))), color="orange", size=1) +
+  geom_point(aes(y=promedio_valor_pagado * (max_count / max(resumen_diario$promedio_valor_pagado))), color="orange", size=1) +
   labs(title="Cantidad de Registros y Valor Pagado Promedio por Día",
        x="Fecha de Pago",
        y="Cantidad de Registros") +
@@ -329,7 +335,7 @@ graficos <- list(
 
 # Crear los gráficos
 
-crear_graficos_multiple(permiso_analisis, graficos)
+graficos_multiple(permiso_analisis, graficos)
 
 
 # Boxplot del valor neto por tipo de vehículo
@@ -340,17 +346,17 @@ ggplot(permiso_analisis, aes(x = Tipo_Vehiculo, y = Valor_Pagado)) +
 
 
 
-crear_grafico_comparado_cuali_cuanti(data = permiso_analisis,var_cuant = "Valor_Pagado", var_cual = "Fecha_Pago",tipo_grafico = "barra")
+grafico_comparado(data = permiso_analisis,var_cuant = "Valor_Pagado", var_cual = "Fecha_Pago",tipo_grafico = "barra")
 
 
-crear_grafico_comparado_cuali_cuanti(data = permiso_analisis,var_cuant = "Valor_Pagado", var_cual = "Grupo_Vehiculo",tipo_grafico = "torta")
+grafico_comparado(data = permiso_analisis,var_cuant = "Valor_Pagado", var_cual = "Grupo_Vehiculo",tipo_grafico = "torta")
 
-crear_grafico_comparado_cuali_cuanti(data = permiso_analisis,var_cuant = "Valor_Pagado", var_cual = "Grupo_Vehiculo",tipo_grafico = "caja")
+grafico_comparado(data = permiso_analisis,var_cuant = "Valor_Pagado", var_cual = "Grupo_Vehiculo",tipo_grafico = "caja")
 
-crear_grafico_comparado_cuali_cuanti(data = permiso_analisis,var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo",tipo_grafico = "caja")
+grafico_comparado(data = permiso_analisis,var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo",tipo_grafico = "caja")
 
 
-tabla_estadistica <- crear_tabla_estadistica(permiso_analisis, "Valor_Neto", "Tipo_de_Pago")
+tabla_estadistica <- tabla_estadistica(permiso_analisis, "Valor_Neto", "Tipo_de_Pago")
 View(tabla_estadistica)
 
 
@@ -375,12 +381,12 @@ numeric_vars <- permiso_analisis %>% select_if(is.numeric)
 cor_matrix <- cor(numeric_vars, use="complete.obs")
 
 # Visualizar con un mapa de calor
-library(reshape2)
+
 melted_cor_matrix <- melt(cor_matrix)
 
 ggplot(melted_cor_matrix, aes(Var1, Var2, fill=value)) +
   geom_tile() +
-  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
+  scale_fill_gradient2(low = "orange", high = "red", mid = "white", midpoint = 0) +
   labs(title="Mapa de Calor de Correlaciones",
        x="Variables",
        y="Variables") +
@@ -399,11 +405,6 @@ ggplot(melted_cor_matrix, aes(Var1, Var2, fill=value)) +
 
 
 #MODELO PARA DETERMINAR LA CANTIDAD DE PERMISOS EN LOS PROXIMOS MESES
-
-# Instalar y cargar librerías necesarias
-library(prophet)
-library(dplyr)
-library(lubridate)
 
 # Asegúrate de que la columna Fecha_Pago esté correctamente convertida a tipo de fecha
 permiso_analisis$Fecha_Pago <- as.Date(permiso_analisis$Fecha_Pago, format="%d-%m-%Y")
