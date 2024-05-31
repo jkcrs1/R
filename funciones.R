@@ -18,15 +18,15 @@ tam.muestra <- function(alfa, epsilon, s, N = Inf) {
 }
 
 # Función para crear una paleta de colores dinámica
-crear_paleta_colores <- function(data, var_cual) {
+paleta_colores <- function(data, var_cual) {
   n <- length(unique(data[[var_cual]]))
   colores <- colorRampPalette(paletteer::paletteer_d("cartography::pastel.pal", n))
   return(colores(n))
 }
 
 # Función para crear gráficos que comparan variables cuantitativas y cualitativas
-crear_grafico_comparado_cuali_cuanti <- function(data, var_cuant, var_cual, tipo_grafico = NULL) {
-  colores <- crear_paleta_colores(data, var_cual)
+grafico_comparado <- function(data, var_cuant, var_cual, tipo_grafico = NULL) {
+  colores <- paleta_colores(data, var_cual)
   
   p <- ggplot(data, aes(x = !!sym(var_cual), y = !!sym(var_cuant), fill = !!sym(var_cual))) +
     scale_fill_manual(values = colores) +
@@ -63,15 +63,15 @@ crear_grafico_comparado_cuali_cuanti <- function(data, var_cuant, var_cual, tipo
 }
 
 # Función para crear múltiples gráficos simultáneamente
-crear_graficos_multiple <- function(data, graficos) {
+graficos_multiple <- function(data, graficos) {
   plots <- lapply(graficos, function(grafico) {
-    crear_grafico_comparado_cuali_cuanti(data, grafico$var_cuant, grafico$var_cual, grafico$tipo_grafico)
+    grafico_comparado(data, grafico$var_cuant, grafico$var_cual, grafico$tipo_grafico)
   })
   do.call("grid.arrange", c(plots, ncol = 2))
 }
 
 # Función para crear tablas con valores estadísticos
-crear_tabla_estadistica <- function(data, var_cuant, var_cual) {
+tabla_estadistica <- function(data, var_cuant, var_cual) {
   data %>%
     group_by(!!sym(var_cual)) %>%
     summarise(
