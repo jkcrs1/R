@@ -2,7 +2,6 @@
 required_packages <- c("ggplot2", "gridExtra", "dplyr", "stringr", "paletteer","palette", "scales","lubridate","prophet","reshape2","e1071","tibble")
 installed_packages <- rownames(installed.packages())
 
-
 for (pkg in required_packages) {
   if (!(pkg %in% installed_packages)) {
     install.packages(pkg)
@@ -10,6 +9,14 @@ for (pkg in required_packages) {
 }
 
 lapply(required_packages, library, character.only = TRUE)
+
+
+
+# Función para reemplazar valores 0, "" y "NULL" con NA
+reemplazar_nulos <- function(x) {
+  ifelse(x %in% c(0, "", "NULL", "Null", "null"), NA, x)
+}
+
 
 # Función para determinar el tamaño de la muestra
 tam.muestra <- function(alfa, epsilon, s, N = Inf) {
@@ -21,7 +28,6 @@ tam.muestra <- function(alfa, epsilon, s, N = Inf) {
 # Función para crear una paleta de colores dinámica
 paleta_colores <- function(data, var_cual) {
   n <- length(unique(data[[var_cual]]))
-  # Usar una paleta conocida y existente
   colores_base <- paletteer::paletteer_d("ggsci::category20_d3", n = n)
   colores <- colorRampPalette(colores_base)(n)
   return(colores)
@@ -29,7 +35,7 @@ paleta_colores <- function(data, var_cual) {
 
 
 
-# Funcion para crear graficos entre una variable cualitativa y cuantitativa
+# Funcion para crear graficos comparados
 grafico_comparado <- function(data, var_cuant, var_cual, tipo_grafico = NULL) {
   colores <- paleta_colores(data, var_cual)
   
@@ -165,4 +171,3 @@ tabla_estadistica <- function(data, var_cuant, var_cual) {
   
   list(Titulo = titulo, Calculos = calculos, ExplicacionesValores = explicaciones, Resumen = resumen)
 }
-
