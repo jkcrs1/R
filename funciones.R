@@ -1,6 +1,7 @@
 # Instalar y cargar las librerías necesarias
-required_packages <- c("ggplot2", "gridExtra", "dplyr", "stringr", "paletteer", "scales")
+required_packages <- c("ggplot2", "gridExtra", "dplyr", "stringr", "paletteer", "scales","lubridate","prophet","reshape2")
 installed_packages <- rownames(installed.packages())
+
 
 for (pkg in required_packages) {
   if (!(pkg %in% installed_packages)) {
@@ -89,7 +90,3 @@ tabla_estadistica <- function(data, var_cuant, var_cual) {
     ) %>%
     ungroup()
 }
-
-
-
-
