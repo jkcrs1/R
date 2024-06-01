@@ -1,5 +1,4 @@
 
-
 cat("\014")
 
 #setwd("C:/UDLA/R/R")#diredtorio de R
@@ -203,42 +202,54 @@ ggplot(permiso_reemplazado, aes(y=Valor_Pagado)) +
 #ANALISIS
 
 
+
 #definir data para analisis
 
 permiso_analisis <- permiso_sin_outliers
 
 
-#histograma de permisos pagados por año de fabricación
 
-ggplot(permiso_analisis, aes(x=Ano_Vehiculo)) +
-  geom_histogram(binwidth=1, fill="lightgreen", color="black") +
-  labs(title="Distribución del Año de Fabricación de los Vehículos",
-       x="Año de Fabricación",
+
+
+tabla_estadistica <- tabla_estadistica(permiso_analisis, "Valor_Neto", "Tipo_de_Pago")
+print(tabla_estadistica$Titulo) 
+View(tabla_estadistica$ExplicacionesValores)
+print(tabla_estadistica$Resumen)
+
+
+
+
+
+
+
+grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "lineas", tipo_calculo = "suma")
+grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "lineas", tipo_calculo = "promedio")
+grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "lineas", tipo_calculo = "cuenta")
+grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "caja")
+grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "histograma")
+grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "barra")
+grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "dispercion")
+grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "densidad")
+grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "violin")
+grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "puntos")
+grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "burbujas")
+grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "area ampliada")
+grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "barras ampliadas")
+grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "torta")
+
+
+  
+
+# Histograma de la permisos pagados
+
+ggplot(permiso_analisis, aes(x=Valor_Pagado)) +
+  geom_histogram(binwidth=5000, fill="blue", color="grey") +
+  scale_x_continuous(labels = scales::comma_format(big.mark = ".", decimal.mark = ",")) +
+  labs(title="Distribución de Salarios",
+       x="Salario",
        y="Frecuencia") +
   theme_minimal()
 
-
-# Grafico de Caja para el valor pagado
-
-ggplot(permiso_analisis, aes(x="", y=Valor_Pagado)) +
-  geom_boxplot(fill="lightblue") +
-  labs(title="Diagrama de Caja de Valor Pagado",
-       y="Valor Pagado") +
-  theme_minimal()
-
-
-
-
-
-
-
-# Linea de Tendencia por pago promedio mensual 
-ggplot(permiso_analisis, aes(x=Fecha_Pago, y=Valor_Pagado)) +
-  geom_line(stat="summary", color="blue") +
-  labs(title="Tendencia Temporal del Valor Pagado",
-       x="Fecha de Pago",
-       y="Valor Pagado Promedio") +
-  theme_minimal()
 
 
 
@@ -274,16 +285,6 @@ ggplot(resumen_diario, aes(x=Fecha_Pago)) +
 
 
 
-# Histograma de la permisos pagados
-
-ggplot(permiso_analisis, aes(x=Valor_Pagado)) +
-  geom_histogram(binwidth=5000, fill="blue", color="grey") +
-  scale_x_continuous(labels = scales::comma_format(big.mark = ".", decimal.mark = ",")) +
-  labs(title="Distribución de Salarios",
-       x="Salario",
-       y="Frecuencia") +
-  theme_minimal()
-
 
 
 
@@ -306,7 +307,7 @@ ggplot(permiso_por_tipo_auto, aes(x=reorder(Tipo_Vehiculo, Valor_Pagado), y=Valo
 
 
 
-# Calcular el salario promedio y la cantidad de datos por título de trabajo
+# Calcular por tipo de de vehiculo la cantidad permisos pagados
 cantidad_por_tipo_vehiculo <- aggregate(Valor_Pagado ~ Tipo_Vehiculo, data=permiso_analisis, length)
 colnames(cantidad_por_tipo_vehiculo) <- c("Tipo_Vehiculo", "count")
 
@@ -330,7 +331,7 @@ ggplot(datos_combinados, aes(x = reorder(Tipo_Vehiculo, Valor_Pagado))) +
     name = "Cantidad de Datos",
     sec.axis = sec_axis(~ . / (max_count / max(datos_combinados$Valor_Pagado)), name = "Permiso Promedio", labels = scales::comma_format(big.mark = ".", decimal.mark = ",")) 
   ) +
-  labs(title = "Cantidad de Datos y Permiso Promedio por Tipo de Vehiculo",
+  labs(title = "Cantidad de Datos y Permiso Pagdos por Tipo de Vehiculo",
        x = "Tipo de Vehículo") +
   coord_flip() +
   theme_minimal()
@@ -373,68 +374,6 @@ ggplot(resumen_mensual, aes(x = Mes, y = monto_acumulado, group = Ano, color = a
 
 
 
-
-
-
-available_palettes <- paletteer::palettes_d_names
-print(available_palettes)
-
-
-
-
-
-
-
-
-#graficos por funcion
-
-# Definir los gráficos a crear
-graficos <- list(
-  list(var_cuant = "Valor_Pagado", var_cual = "Grupo_Vehiculo", tipo_grafico = "torta"),
-  list(var_cuant = "Valor_Pagado", var_cual = "Grupo_Vehiculo", tipo_grafico = "caja")
-  #list(var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "caja")
-)
-
-# Crear los gráficos
-
-graficos_multiple(permiso_analisis, graficos)
-
-
-# Boxplot del valor neto por tipo de vehículo
-ggplot(permiso_analisis, aes(x = Tipo_Vehiculo, y = Valor_Pagado)) +
-  geom_boxplot() +
-  labs(title = "Valor Neto por Tipo de Vehículo", x = "Tipo de Vehículo", y = "Valor Neto")
-
-
-
-
-grafico_comparado(data = permiso_analisis,var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo",tipo_grafico = "barra")
-
-
-grafico_comparado(data = permiso_analisis,var_cuant = "Valor_Pagado", var_cual = "Grupo_Vehiculo",tipo_grafico = "torta")
-
-grafico_comparado(data = permiso_analisis,var_cuant = "Valor_Pagado", var_cual = "Grupo_Vehiculo",tipo_grafico = "caja")
-
-grafico_comparado(data = permiso_analisis,var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo",tipo_grafico = "caja")
-
-
-tabla_estadistica <- tabla_estadistica(permiso_analisis, "Valor_Neto", "Tipo_de_Pago")
-print(tabla_estadistica$Titulo) 
-View(tabla_estadistica$ExplicacionesValores)
-print(tabla_estadistica$Resumen)
-
-
-
-
-
-
-
-
-
-
-
-
-
 #mapa de correlacion
 
 # Seleccionar solo variables numéricas
@@ -455,6 +394,10 @@ ggplot(melted_cor_matrix, aes(Var1, Var2, fill=value)) +
        y="Variables") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+
 
 
 
