@@ -1,5 +1,5 @@
 # Instalar y cargar las librerías necesarias
-required_packages <- c("ggplot2", "gridExtra", "dplyr", "stringr", "paletteer", "scales","lubridate","prophet","reshape2","e1071","tibble")
+required_packages <- c("ggplot2", "gridExtra", "dplyr", "stringr", "paletteer","palette", "scales","lubridate","prophet","reshape2","e1071","tibble")
 installed_packages <- rownames(installed.packages())
 
 
@@ -21,11 +21,60 @@ tam.muestra <- function(alfa, epsilon, s, N = Inf) {
 # Función para crear una paleta de colores dinámica
 paleta_colores <- function(data, var_cual) {
   n <- length(unique(data[[var_cual]]))
+  # Usar una paleta conocida y existente
   colores_base <- paletteer::paletteer_d("ggsci::category20_d3", n = n)
   colores <- colorRampPalette(colores_base)(n)
   return(colores)
 }
 
+
+
+# Funcion para crear graficos entre una variable cualitativa y cuantitativa
+grafico_comparado <- function(data, var_cuant, var_cual, tipo_grafico = NULL) {
+  colores <- paleta_colores(data, var_cual)
+  
+  p <- ggplot(data, aes(x = !!sym(var_cual), y = !!sym(var_cuant), fill = !!sym(var_cual))) +
+    scale_fill_manual(values = colores) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    labs(title = paste(tipo_grafico, "de", var_cuant, "por", var_cual), x = var_cual, y = var_cuant) +
+    scale_y_continuous(labels = scales::comma_format(big.mark = ".", decimal.mark = ","))
+  
+  p <- switch(tipo_grafico,
+              "caja" = p + geom_boxplot(),
+              "histograma" = p + geom_histogram(position = "dodge", binwidth = 10),
+              "barra" = p + geom_bar() + geom_text(stat = 'count', aes(label = ..count..), vjust = -0.5),
+              "dispercion" = p + geom_point(aes(color = !!sym(var_cual))),
+              "densidad" = p + geom_density(alpha = 0.5),
+              "violin" = p + geom_violin(),
+              "lineas" = p + geom_line(aes(group = !!sym(var_cual), color = !!sym(var_cual))),
+              "puntos" = p + geom_jitter(aes(color = !!sym(var_cual))),
+              "area" = p + geom_area(position = 'stack'),
+              "burbujas" = p + geom_point(aes(size = !!sym(var_cuant)), alpha = 0.5),
+              "area ampliada" = p + geom_area(position = 'stack'),
+              "barras ampliadas" = p + geom_bar(position = 'fill'),
+              "torta" = {
+                data_pie <- data %>% count(!!sym(var_cual)) %>% mutate(percentage = n / sum(n))
+                ggplot(data_pie, aes(x = "", y = percentage, fill = !!sym(var_cual))) +
+                  geom_bar(stat = "identity", width = 1) +
+                  coord_polar("y") +
+                  scale_fill_manual(values = colores) +
+                  geom_text(aes(label = scales::percent(percentage)), position = position_stack(vjust = 0.5)) +
+                  labs(title = paste("Gráfico de Torta de", var_cual), x = NULL, y = NULL) +
+                  theme_void()
+              },
+              stop("Tipo de gráfico no soportado.")
+  )
+  print(p)
+}
+
+# Funcion para crear una grilla de n graficos
+
+graficos_multiple <- function(data, graficos) {
+  plots <- lapply(graficos, function(grafico) {
+    grafico_comparado(data, grafico$var_cuant, grafico$var_cual, grafico$tipo_grafico)
+  })
+  do.call("grid.arrange", c(plots, ncol = 2))
+}
 
 # Función para crear tablas con valores estadísticos y sus explicaciones
 tabla_estadistica <- function(data, var_cuant, var_cual) {
@@ -116,5 +165,4 @@ tabla_estadistica <- function(data, var_cuant, var_cual) {
   
   list(Titulo = titulo, Calculos = calculos, ExplicacionesValores = explicaciones, Resumen = resumen)
 }
-
 
