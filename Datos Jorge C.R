@@ -2,7 +2,16 @@
 
 cat("\014")
 
+#setwd("C:/UDLA/R/R")#diredtorio de R
 
+
+# Cargar librerías necesarias
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(scales)
+library(prophet)
+library(stringr)
 
 # Enlace raw al archivo de funciones en GitHub
 source("https://raw.githubusercontent.com/jkcrs1/R/main/funciones.R")
@@ -26,28 +35,96 @@ colnames(permiso) <- colnames(permiso) %>%
   str_replace_all("\\.", "_")
 
 
-# Convertir tipos de datos si es necesario
-permiso$Ano_Vehiculo <- as.integer(permiso$Ano_Vehiculo)
-permiso$Valor_Neto <- as.numeric(permiso$Valor_Neto)
-permiso$Fecha_Pago <- as.Date(permiso$Fecha_Pago, format="%d-%m-%Y")
+#normaliza de datos 
+tipo_vehiculo_mapeo <- c(
+  "AMBULANCIA" = "AMBULANCIA",
+  "AUTOMOVIL" = "AUTOMOVIL",
+  "BUS" = "BUS",
+  "Cabriolet" = "AUTOMOVIL",
+  "CAMION" = "CAMION",
+  "CAMIONETA" = "CAMIONETA",
+  "CARRO ARRASTRE A" = "REMOLQUE",
+  "CARRO BOMBA" = "CARRO BOMBA",
+  "CASA RODANTE" = "CASA RODANTE",
+  "Comercial" = "COMERCIAL",
+  "CUATRIMOTO" = "CUATRIMOTO",
+  "FURGON" = "FURGON",
+  "GRUA" = "MAQUINA PESADA",
+  "Hatchback" = "AUTOMOVIL",
+  "JEEP" = "AUTOMOVIL",
+  "MAQUINA INDUSTRIAL" = "MAQUINA INDUSTRIAL",
+  "MINIBUS" = "MINIBUS",
+  "MINIBUS ESCOLAR" = "MINIBUS",
+  "MINIBUS PARTICULAR" = "MINIBUS",
+  "MINIBUS PRIVADO" = "MINIBUS",
+  "MINIBUS TURISMO" = "MINIBUS",
+  "MOTO" = "MOTOCICLETA",
+  "MOTOCICLETA" = "MOTOCICLETA",
+  "OTROS" = "OTROS",
+  "REMOLQUE A" = "REMOLQUE",
+  "REMOLQUE B" = "REMOLQUE",
+  "RETROEXCAVADORA" = "MAQUINA PESADA",
+  "Sedan" = "AUTOMOVIL",
+  "SEMI REMOLQUE" = "REMOLQUE",
+  "STATION WAGON" = "AUTOMOVIL",
+  "SUV" = "SUV",
+  "TAXI EJECUTIVO" = "TAXI",
+  "TAXI BASICO" = "TAXI",
+  "TAXI COLECTIVO" = "TAXI",
+  "TRACTOCAMION" = "CAMION",
+  "TRACTOR" = "TRACTOR",
+  "VAN" = "VAN"
+)
+
+tipo_combustible_mapeo <- c(
+  "Benc" = "Bencina",
+  "Dies" = "Diesel",
+  "NULL" = "NULL",
+  "DUAL" = "Hibrido",
+  "Hibr" = "Hibrido",
+  "Elec" = "Electrico"
+)
+
+transmision_mapeo <- c(
+  "Mec" = "Mecanica",
+  "Aut" = "Automatica",
+  "NULL" = "NULL",
+  "CVT" = "Automatica",
+  "DCT" = "Automatica"
+)
+
+
+# Aplicar todas las transformaciones y normalizaciones
+permiso <- permiso %>%
+  mutate(
+    Tipo_Vehiculo = recode(Tipo_Vehiculo, !!!tipo_vehiculo_mapeo),
+    Tipo_Combustible = recode(Tipo_Combustible, !!!tipo_combustible_mapeo),
+    Transmision = recode(Transmision, !!!transmision_mapeo),
+    across(everything(), reemplazar_nulos),
+    across(c(Municipalidad, Grupo_Vehiculo, Placa, Digito, Codigo_SII,
+             Forma_Pago, Tipo_Vehiculo, Marca, Modelo, Color,
+             Transmision, Tipo_Combustible, Equipamiento), str_to_title)
+  ) %>%
+  mutate(
+    Ano_Vehiculo = as.integer(Ano_Vehiculo),
+    Valor_Neto = as.numeric(Valor_Neto),
+    Fecha_Pago = as.Date(Fecha_Pago, format = "%d-%m-%Y")
+  ) %>%
+  filter(!is.na(Valor_Pagado) & !is.na(Fecha_Pago) & Valor_Pagado > 0) %>%
+  distinct()
+
+# Mostrar los primeros registros para verificar
+head(permiso)
+
 
 
 # Verificar valores faltantes
 sum(is.na(permiso))
 
 
-# Verifica que no haya valores NA en la columna Valor_Pagado
-permiso <- permiso %>% 
-  filter(!is.na(Valor_Pagado) & !is.na(Fecha_Pago) & Valor_Pagado > 0)
 
 
-# Eliminar filas duplicadas
-permiso <- permiso %>% distinct()
 
-
-# Análisis Exploratorio de Datos
-# Resumen estadístico de las variables numéricas
-summary(permiso)
 
 
 
@@ -496,4 +573,3 @@ ggplot() +
   labs(title = "Predicción de la cantidad de vehículos livianos atendidos para los próximos 12 meses",
        x = "Fecha", y = "Cantidad de Vehículos") +
   theme_minimal()
-
