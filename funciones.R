@@ -89,4 +89,22 @@ tabla_estadistica <- function(data, var_cuant, var_cual) {
       coeficiente_variacion = sd(!!sym(var_cuant), na.rm = TRUE) / mean(!!sym(var_cuant), na.rm = TRUE)
     ) %>%
     ungroup()
+    explicaciones <- tibble::tibble(
+    Variable = c("cantidad_registros", "media", "mediana", "desviacion_estandar", "varianza", "minimo", "maximo", "q1", "q3", "rango_intercuartil", "coeficiente_variacion"),
+    Explicacion = c(
+      "Número de registros en el grupo.",
+      paste("Media de", var_cuant, "."),
+      paste("Mediana de", var_cuant, "."),
+      paste("Desviación estándar de", var_cuant, "."),
+      paste("Varianza de", var_cuant, "."),
+      paste("Valor mínimo de", var_cuant, "."),
+      paste("Valor máximo de", var_cuant, "."),
+      paste("Primer cuartil (25%) de", var_cuant, "."),
+      paste("Tercer cuartil (75%) de", var_cuant, "."),
+      paste("Rango intercuartil (Q3 - Q1) de", var_cuant, "."),
+      paste("Coeficiente de variación (desviación estándar / media) de", var_cuant, ".")
+    )
+  )
+  
+  list(Calculos = calculos, Explicaciones = explicaciones)
 }
