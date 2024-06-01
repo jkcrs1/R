@@ -28,11 +28,10 @@ tam.muestra <- function(alfa, epsilon, s, N = Inf) {
 # Función para crear una paleta de colores dinámica
 paleta_colores <- function(data, var_cual) {
   n <- length(unique(data[[var_cual]]))
-  colores_base <- paletteer_d("ggsci::category20_d3", n = n)
+  colores_base <- paletteer::paletteer_d("ggsci::category20_d3", n = n)
   colores <- colorRampPalette(colores_base)(n)
   return(colores)
 }
-
 # Función para crear diferentes tipos de gráficos comparados
 grafico_comparado <- function(data, var_cuant, var_cual, tipo_grafico, tipo_calculo = NULL) {
   
