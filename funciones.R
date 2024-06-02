@@ -25,6 +25,8 @@ tam.muestra <- function(alfa, epsilon, s, N = Inf) {
   return(ceiling(n))
 }
 
+
+
 # Función para crear una paleta de colores dinámica
 paleta_colores <- function(data, var_cual) {
   n <- length(unique(data[[var_cual]]))
@@ -32,8 +34,22 @@ paleta_colores <- function(data, var_cual) {
   colores <- colorRampPalette(colores_base)(n)
   return(colores)
 }
+
+
+
+
 # Función para crear diferentes tipos de gráficos comparados
-grafico_comparado <- function(data, var_cuant, var_cual, tipo_grafico, tipo_calculo = NULL) {
+grafico_comparado <- function(data, var_cuant, var_cual, var_tiempo = NULL, tipo_grafico, tipo_calculo = NULL) {
+  
+  # Definir las variables x, y, t
+  x <- sym(var_tiempo)
+  y <- sym(var_cuant)
+  t <- sym(var_cual)
+  
+  # Variables locales para etiquetas
+  label_x <- var_tiempo
+  label_y <- var_cuant
+  label_titulo <- paste(tipo_calculo, "de", var_cuant, "por", var_cual)
   
   # Obtener la paleta de colores
   colores <- paleta_colores(data, var_cual)
@@ -41,88 +57,84 @@ grafico_comparado <- function(data, var_cuant, var_cual, tipo_grafico, tipo_calc
   # Agrupar y calcular según el tipo de cálculo si es necesario
   if (!is.null(tipo_calculo)) {
     data <- data %>%
-      group_by(!!sym(var_cual), Ano_Vehiculo) %>%
+      group_by(!!t, !!x) %>%
       summarise(
         Valor = case_when(
-          tipo_calculo == "suma" ~ sum(!!sym(var_cuant), na.rm = TRUE),
-          tipo_calculo == "promedio" ~ mean(!!sym(var_cuant), na.rm = TRUE),
+          tipo_calculo == "suma" ~ sum(!!y, na.rm = TRUE),
+          tipo_calculo == "promedio" ~ mean(!!y, na.rm = TRUE),
           tipo_calculo == "cuenta" ~ n()
         ), .groups = 'drop'
       )
   } else {
     data <- data %>%
-      mutate(Valor = !!sym(var_cuant))
+      mutate(Valor = !!y)
   }
   
   # Crear el gráfico base
-  p <- ggplot(data, aes(x = Ano_Vehiculo, y = Valor, color = !!sym(var_cual), group = !!sym(var_cual))) +
-    scale_color_manual(values = colores)
+  p <- ggplot(data, aes(x = !!x, y = Valor, color = !!t, group = !!t)) +
+    scale_color_manual(values = colores) +
+    scale_fill_manual(values = colores) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))
   
   # Añadir diferentes tipos de gráficos
   p <- switch(tipo_grafico,
-              "caja" = ggplot(data, aes_string(x = var_cual, y = var_cuant, fill = var_cual)) +
+              "caja" = ggplot(data, aes(x = !!t, y = !!y, fill = !!t)) +
                 geom_boxplot() +
-                scale_fill_manual(values = colores) +
-                theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-                labs(title = paste("Boxplot de", var_cuant, "por", var_cual), x = var_cual, y = var_cuant),
-              "histograma" = ggplot(data, aes_string(x = var_cuant, fill = var_cual)) +
+                labs(title = paste("Boxplot de", label_y, "por", label_x), x = label_x, y = label_y),
+              "histograma" = ggplot(data, aes(x = !!y, fill = !!t)) +
                 geom_histogram(position = "dodge", binwidth = 10) +
-                scale_fill_manual(values = colores) +
-                theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-                labs(title = paste("Histograma de", var_cuant, "por", var_cual), x = var_cuant, y = "Frecuencia"),
-              "barra" = ggplot(data, aes_string(x = var_cual, y = "..count..", fill = var_cual)) +
+                labs(title = paste("Histograma de", label_y, "por", label_x), x = label_y, y = "Frecuencia"),
+              "barra" = ggplot(data, aes(x = !!t, y = ..count.., fill = !!t)) +
                 geom_bar(stat = "count") +
-                geom_text(stat = 'count', aes_string(label = "..count.."), vjust = -0.5) +
-                scale_fill_manual(values = colores) +
-                theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-                labs(title = paste("Barras de", var_cuant, "por", var_cual), x = var_cual, y = "Cuenta"),
-              "dispercion" = ggplot(data, aes_string(x = var_cual, y = var_cuant, color = var_cual)) +
+                geom_text(stat = 'count', aes(label = ..count..), vjust = -0.5) +
+                labs(title = paste("Barras de", label_y, "por", label_x), x = label_x, y = "Cuenta"),
+              "dispercion" = ggplot(data, aes(x = !!t, y = !!y, color = !!t)) +
                 geom_point() +
-                scale_color_manual(values = colores) +
-                theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-                labs(title = paste("Dispersión de", var_cuant, "por", var_cual), x = var_cual, y = var_cuant),
-              "densidad" = ggplot(data, aes_string(x = var_cuant, fill = var_cual)) +
+                labs(title = paste("Dispersión de", label_y, "por", label_x), x = label_x, y = label_y),
+              "densidad" = ggplot(data, aes(x = !!y, fill = !!t)) +
                 geom_density(alpha = 0.5) +
-                scale_fill_manual(values = colores) +
-                theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-                labs(title = paste("Densidad de", var_cuant, "por", var_cual), x = var_cuant, y = "Densidad"),
-              "violin" = ggplot(data, aes_string(x = var_cual, y = var_cuant, fill = var_cual)) +
+                labs(title = paste("Densidad de", label_y, "por", label_x), x = label_y, y = "Densidad"),
+              "violin" = ggplot(data, aes(x = !!t, y = !!y, fill = !!t)) +
                 geom_violin() +
-                scale_fill_manual(values = colores) +
-                theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-                labs(title = paste("Violin de", var_cuant, "por", var_cual), x = var_cual, y = var_cuant),
+                labs(title = paste("Violin de", label_y, "por", label_x), x = label_x, y = label_y),
               "lineas" = p + geom_line() + geom_point() +
-                labs(title = paste("Líneas de", tipo_calculo, "de", var_cuant, "por Año de", var_cual),
-                     x = "Año de Vehículo", y = paste(tipo_calculo, "de", var_cuant)),
-              "puntos" = ggplot(data, aes_string(x = var_cual, y = var_cuant, color = var_cual)) +
+                labs(title = paste("Líneas de", tipo_calculo, "de", label_y, "por", label_x, "de", label_titulo),
+                     x = label_x, y = paste(tipo_calculo, "de", label_y)),
+              "lineas acumuladas" = {
+                data <- data %>%
+                  group_by(!!t) %>%
+                  arrange(!!x) %>%
+                  mutate(Valor = cumsum(Valor))
+                ggplot(data, aes(x = !!x, y = Valor, color = !!t, group = !!t)) +
+                  geom_line() +
+                  geom_point() +
+                  scale_color_manual(values = colores) +
+                  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+                  labs(title = paste("Líneas Acumuladas de", tipo_calculo, "de", label_y, "por", label_x, "de", label_titulo),
+                       x = label_x, y = paste(tipo_calculo, "de", label_y))
+              },
+              "puntos" = ggplot(data, aes(x = !!t, y = !!y, color = !!t)) +
                 geom_jitter() +
-                scale_color_manual(values = colores) +
-                theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-                labs(title = paste("Puntos de", var_cuant, "por", var_cual), x = var_cual, y = var_cuant),
+                labs(title = paste("Puntos de", label_y, "por", label_x), x = label_x, y = label_y),
               "area" = p + geom_area(position = "stack") +
-                labs(title = paste("Área de", tipo_calculo, "de", var_cuant, "por Año de", var_cual),
-                     x = "Año de Vehículo", y = paste(tipo_calculo, "de", var_cuant)),
-              "burbujas" = ggplot(data, aes_string(x = var_cual, y = var_cuant, size = var_cuant, color = var_cual)) +
+                labs(title = paste("Área de", tipo_calculo, "de", label_y, "por", label_x, "de", label_titulo),
+                     x = label_x, y = paste(tipo_calculo, "de", label_y)),
+              "burbujas" = ggplot(data, aes(x = !!t, y = !!y, size = !!y, color = !!t)) +
                 geom_point(alpha = 0.5) +
-                scale_color_manual(values = colores) +
-                theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-                labs(title = paste("Burbujas de", var_cuant, "por", var_cual), x = var_cual, y = var_cuant),
+                labs(title = paste("Burbujas de", label_y, "por", label_x), x = label_x, y = label_y),
               "area ampliada" = p + geom_area(position = "stack") +
-                labs(title = paste("Área Ampliada de", tipo_calculo, "de", var_cuant, "por Año de", var_cual),
-                     x = "Año de Vehículo", y = paste(tipo_calculo, "de", var_cuant)),
-              "barras ampliadas" = ggplot(data, aes_string(x = var_cual, y = "..count..", fill = var_cual)) +
+                labs(title = paste("Área Ampliada de", tipo_calculo, "de", label_y, "por", label_x, "de", label_titulo),
+                     x = label_x, y = paste(tipo_calculo, "de", label_y)),
+              "barras ampliadas" = ggplot(data, aes(x = !!t, y = ..count.., fill = !!t)) +
                 geom_bar(position = "fill") +
-                scale_fill_manual(values = colores) +
-                theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-                labs(title = paste("Barras Ampliadas de", var_cuant, "por", var_cual), x = var_cual, y = "Proporción"),
+                labs(title = paste("Barras Ampliadas de", label_y, "por", label_x), x = label_x, y = "Proporción"),
               "torta" = {
-                data_pie <- data %>% count(!!sym(var_cual)) %>% mutate(percentage = n / sum(n))
-                ggplot(data_pie, aes(x = "", y = percentage, fill = !!sym(var_cual))) +
+                data_pie <- data %>% count(!!t) %>% mutate(percentage = n / sum(n))
+                ggplot(data_pie, aes(x = "", y = percentage, fill = !!t)) +
                   geom_bar(stat = "identity", width = 1) +
                   coord_polar("y") +
-                  scale_fill_manual(values = colores) +
                   geom_text(aes(label = scales::percent(percentage)), position = position_stack(vjust = 0.5)) +
-                  labs(title = paste("Gráfico de Torta de", var_cual), x = NULL, y = NULL) +
+                  labs(title = paste("Gráfico de Torta de", label_x), x = NULL, y = NULL) +
                   theme_void()
               },
               stop("Tipo de gráfico no soportado.")
