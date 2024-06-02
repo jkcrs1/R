@@ -27,29 +27,12 @@ tam.muestra <- function(alfa, epsilon, s, N = Inf) {
 }
 
 
-# Función para crear una paleta de colores dinámica
-paleta_colores <- function(data, var_cual) {
-  n <- length(unique(data[[var_cual]]))
-  if (n < 2) {
-    colores <- c("red", "blue")
-  } else {
-    colores_base <- paletteer_d("ggsci::category20_d3", n = n)
-    colores <- colorRampPalette(colores_base)(n)
-  }
-  return(colores)
-}
-
-
-
-
 
 # Función para crear una paleta de colores fija
 paleta_colores <- function() {
   colores <- paletteer::paletteer_c("grDevices::Zissou 1", 30)
   return(colores)
 }
-
-
 
 
 
@@ -203,8 +186,6 @@ grafico_combinado <- function(data, var_cuant, var_cual) {
 
 # Función para crear un gráfico comparado
 grafico_comparado <- function(data, var_cuant, var_cual, var_tiempo = NULL, tipo_grafico, tipo_calculo = NULL) {
-  
-  
   # Definir las variables x, y, t
   y <- sym(var_cuant)
   t <- sym(var_cual)
@@ -220,6 +201,11 @@ grafico_comparado <- function(data, var_cuant, var_cual, var_tiempo = NULL, tipo
   
   # Obtener la paleta de colores
   colores <- paleta_colores()
+  
+  
+  niveles <- length(levels(data[[var_cual]]))
+  colores <- scales::hue_pal()(niveles)
+  
   
   # Agrupar y calcular según el tipo de cálculo si es necesario
   if (!is.null(tipo_calculo)) {
@@ -237,13 +223,15 @@ grafico_comparado <- function(data, var_cuant, var_cual, var_tiempo = NULL, tipo
       mutate(Valor = !!y)
   }
   
+  # Ordenar los datos de mayor a menor
+  data <- data %>%
+    arrange(desc(Valor))
+  
   # Crear el gráfico base
-  p <- ggplot(data, aes(x = !!x, y = Valor, color = !!t, group = !!t)) +
+  p <- ggplot(data, aes(x = !!t, y = Valor, fill = !!t)) +
     scale_color_manual(values = colores) +
     scale_fill_manual(values = colores) +
-    theme_minimal() +
-    scale_y_continuous(labels = scales::comma_format(big.mark = ".", decimal.mark = ","))+
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+    theme_minimal()
   
   # Añadir diferentes tipos de gráficos
   p <- switch(tipo_grafico,
@@ -253,10 +241,17 @@ grafico_comparado <- function(data, var_cuant, var_cual, var_tiempo = NULL, tipo
               "histograma" = ggplot(data, aes(x = !!y, fill = !!t)) +
                 geom_histogram(position = "dodge", binwidth = 10) +
                 labs(title = paste("Histograma de", label_y, "por", label_x), x = label_y, y = "Frecuencia"),
-              "barra" = ggplot(data, aes(x = !!t, y = Valor, fill = !!t)) +
+              "barra" = ggplot(data, aes(x = reorder(!!t, Valor), y = Valor, fill = !!t)) +
                 geom_bar(stat = "identity") +
-                geom_text(aes(label = scales::comma(Valor, big.mark = ".", decimal.mark = ",")), vjust = -0.5) + 
-                labs(title = paste("Barras de", label_y, "por", label_x), x = label_x, y = "Cuenta"),
+                #geom_text(aes(label = scales::comma(Valor, big.mark = ".", decimal.mark = ",")), hjust = 1.2) +
+                labs(title = paste("Barras de", label_y, "por", label_x), x = label_x, y = tipo_calculo) +
+                theme(axis.text.y = element_text(hjust = 0.5, vjust = 0.5)) +
+                coord_flip(),
+              "columnas" = ggplot(data, aes(x = reorder(!!t, -Valor), y = Valor, fill = !!t)) +
+                geom_col() +
+                #geom_text(aes(label = scales::comma(Valor, big.mark = ".", decimal.mark = ",")), vjust = -0.5) +
+                labs(title = paste("Columnas de", label_y, "por", label_x), x = label_x, y = tipo_calculo) +
+                theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)),
               "dispercion" = ggplot(data, aes(x = !!t, y = !!y, color = !!t)) +
                 geom_point() +
                 labs(title = paste("Dispersión de", label_y, "por", label_x), x = label_x, y = label_y),
@@ -284,18 +279,9 @@ grafico_comparado <- function(data, var_cuant, var_cual, var_tiempo = NULL, tipo
               "puntos" = ggplot(data, aes(x = !!t, y = !!y, color = !!t)) +
                 geom_jitter() +
                 labs(title = paste("Puntos de", label_y, "por", label_x), x = label_x, y = label_y),
-              "area" = p + geom_area(position = "stack") +
-                labs(title = paste("Área de", tipo_calculo, "de", label_y, "por", label_x, "de", label_titulo),
-                     x = label_x, y = paste(tipo_calculo, "de", label_y)),
               "burbujas" = ggplot(data, aes(x = !!t, y = !!y, size = !!y, color = !!t)) +
                 geom_point(alpha = 0.5) +
                 labs(title = paste("Burbujas de", label_y, "por", label_x), x = label_x, y = label_y),
-              "area ampliada" = p + geom_area(position = "stack") +
-                labs(title = paste("Área Ampliada de", tipo_calculo, "de", label_y, "por", label_x, "de", label_titulo),
-                     x = label_x, y = paste(tipo_calculo, "de", label_y)),
-              "barras ampliadas" = ggplot(data, aes(x = !!t, y = ..count.., fill = !!t)) +
-                geom_bar(position = "fill") +
-                labs(title = paste("Barras Ampliadas de", label_y, "por", label_x), x = label_x, y = "Proporción"),
               "torta" = {
                 data_pie <- data %>% count(!!t) %>% mutate(percentage = n / sum(n))
                 ggplot(data_pie, aes(x = "", y = percentage, fill = !!t)) +
@@ -303,17 +289,19 @@ grafico_comparado <- function(data, var_cuant, var_cual, var_tiempo = NULL, tipo
                   coord_polar("y") +
                   geom_text(aes(label = scales::percent(percentage)), position = position_stack(vjust = 0.5)) +
                   labs(title = paste("Gráfico de Torta de", label_x), x = NULL, y = NULL) +
-                  theme_void()
+                  
               },
-              stop("Tipo de gráfico no soportado.")
+              stop(paste(tipo_grafico, " Tipo de gráfico no soportado."))
   )
   
   # Aplicar tema minimalista y formato de etiquetas en eje y
   p <- p + theme_minimal() +
-    scale_y_continuous(labels = scales::comma_format(big.mark = ".", decimal.mark = ","))+
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+    scale_y_continuous(labels = scales::comma_format(big.mark = ".", decimal.mark = ",")) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+  
   # Mostrar el gráfico
   print(p)
 }
+
 
 
