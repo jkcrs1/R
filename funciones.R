@@ -28,11 +28,14 @@ tam.muestra <- function(alfa, epsilon, s, N = Inf) {
 
 
 
+
 # Función para crear una paleta de colores fija
 paleta_colores <- function() {
   colores <- paletteer::paletteer_c("grDevices::Zissou 1", 30)
   return(colores)
 }
+
+
 
 
 
@@ -182,10 +185,8 @@ grafico_combinado <- function(data, var_cuant, var_cual) {
 }
 
 
-
-
-# Función para crear un gráfico comparado
-grafico_comparado <- function(data, var_cuant, var_cual, var_tiempo = NULL, tipo_grafico, tipo_calculo = NULL) {
+grafico_comparado_prueba <- function(data, var_cuant, var_cual, var_tiempo = NULL, tipo_grafico, tipo_calculo = NULL) {
+  
   # Definir las variables x, y, t
   y <- sym(var_cuant)
   t <- sym(var_cual)
@@ -199,13 +200,9 @@ grafico_comparado <- function(data, var_cuant, var_cual, var_tiempo = NULL, tipo
   label_y <- var_cuant
   label_titulo <- paste(tipo_calculo, "de", var_cuant, "por", var_cual)
   
-  # Obtener la paleta de colores
-  colores <- paleta_colores()
-  
-  
+  # Generar una paleta de colores basada en la cantidad de niveles en var_cual
   niveles <- length(levels(data[[var_cual]]))
   colores <- scales::hue_pal()(niveles)
-  
   
   # Agrupar y calcular según el tipo de cálculo si es necesario
   if (!is.null(tipo_calculo)) {
@@ -243,13 +240,13 @@ grafico_comparado <- function(data, var_cuant, var_cual, var_tiempo = NULL, tipo
                 labs(title = paste("Histograma de", label_y, "por", label_x), x = label_y, y = "Frecuencia"),
               "barra" = ggplot(data, aes(x = reorder(!!t, Valor), y = Valor, fill = !!t)) +
                 geom_bar(stat = "identity") +
-                #geom_text(aes(label = scales::comma(Valor, big.mark = ".", decimal.mark = ",")), hjust = 1.2) +
+                geom_text(aes(label = scales::comma(Valor, big.mark = ".", decimal.mark = ",")), hjust = 1.2) +
                 labs(title = paste("Barras de", label_y, "por", label_x), x = label_x, y = tipo_calculo) +
                 theme(axis.text.y = element_text(hjust = 0.5, vjust = 0.5)) +
                 coord_flip(),
               "columnas" = ggplot(data, aes(x = reorder(!!t, -Valor), y = Valor, fill = !!t)) +
                 geom_col() +
-                #geom_text(aes(label = scales::comma(Valor, big.mark = ".", decimal.mark = ",")), vjust = -0.5) +
+                geom_text(aes(label = scales::comma(Valor, big.mark = ".", decimal.mark = ",")), vjust = -0.5) +
                 labs(title = paste("Columnas de", label_y, "por", label_x), x = label_x, y = tipo_calculo) +
                 theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)),
               "dispercion" = ggplot(data, aes(x = !!t, y = !!y, color = !!t)) +
@@ -261,7 +258,9 @@ grafico_comparado <- function(data, var_cuant, var_cual, var_tiempo = NULL, tipo
               "violin" = ggplot(data, aes(x = !!t, y = !!y, fill = !!t)) +
                 geom_violin() +
                 labs(title = paste("Violin de", label_y, "por", label_x), x = label_x, y = label_y),
-              "lineas" = p + geom_line() + geom_point() +
+              "lineas" = ggplot(data, aes(x = !!x, y = Valor, color = !!t, group = !!t)) +
+                geom_line() +
+                geom_point() +
                 labs(title = paste("Líneas de", tipo_calculo, "de", label_y, "por", label_x, "de", label_titulo),
                      x = label_x, y = paste(tipo_calculo, "de", label_y)),
               "lineas acumuladas" = {
@@ -289,7 +288,7 @@ grafico_comparado <- function(data, var_cuant, var_cual, var_tiempo = NULL, tipo
                   coord_polar("y") +
                   geom_text(aes(label = scales::percent(percentage)), position = position_stack(vjust = 0.5)) +
                   labs(title = paste("Gráfico de Torta de", label_x), x = NULL, y = NULL) +
-                  
+                  theme_void()
               },
               stop(paste(tipo_grafico, " Tipo de gráfico no soportado."))
   )
@@ -304,4 +303,33 @@ grafico_comparado <- function(data, var_cuant, var_cual, var_tiempo = NULL, tipo
 }
 
 
+
+# Definir la función para crear el mapa de calor de correlaciones
+mapa_calor <- function(data) {
+  
+  # Seleccionar solo variables numéricas
+  numeric_vars <- data %>% select_if(is.numeric)
+  
+  # Calcular matriz de correlación
+  cor_matrix <- cor(numeric_vars, use = "complete.obs")
+  
+  # Derretir la matriz de correlación
+  melted_cor_matrix <- melt(cor_matrix)
+  
+  # Obtener la paleta de colores
+  colores <- paleta_colores()
+  
+  # Crear el mapa de calor
+  p <- ggplot(melted_cor_matrix, aes(Var1, Var2, fill = value)) +
+    geom_tile() +
+    scale_fill_gradientn(colors = colores, limits = c(-1, 1)) +
+    labs(title = "Mapa de Calor de Correlaciones",
+         x = "Variables",
+         y = "Variables") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  # Mostrar el gráfico
+  print(p)
+}
 
