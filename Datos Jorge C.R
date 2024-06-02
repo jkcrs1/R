@@ -107,7 +107,9 @@ permiso <- permiso %>%
   mutate(
     Ano_Vehiculo = as.integer(Ano_Vehiculo),
     Valor_Neto = as.numeric(Valor_Neto),
-    Fecha_Pago = as.Date(Fecha_Pago, format = "%d-%m-%Y")
+    Fecha_Pago = as.Date(Fecha_Pago, format = "%d-%m-%Y"),
+    Ano = year(Fecha_Pago),
+    Mes = month(Fecha_Pago, label = TRUE)
   ) %>%
   filter(!is.na(Valor_Pagado) & !is.na(Fecha_Pago) & Valor_Pagado > 0) %>%
   distinct()
@@ -147,7 +149,7 @@ n
 set.seed(2)  
 cant <- sample(nrow(permiso), n)
 permiso_muestra <- permiso[cant, ]
-
+permiso_muestra <- permiso
 
 
 
@@ -207,11 +209,11 @@ ggplot(permiso_reemplazado, aes(y=Valor_Pagado)) +
 
 permiso_analisis <- permiso_sin_outliers
 
+permiso_analisis <- permiso
 
 
 
-
-tabla_estadistica <- tabla_estadistica(permiso_analisis, "Valor_Neto", "Tipo_de_Pago")
+tabla_estadistica <- tabla_estadistica(permiso, permiso$Valor_Neto, permiso$Tipo_de_Pago)
 print(tabla_estadistica$Titulo) 
 View(tabla_estadistica$ExplicacionesValores)
 print(tabla_estadistica$Resumen)
@@ -220,180 +222,139 @@ print(tabla_estadistica$Resumen)
 
 
 
+#graficos por funcion
+
+# Variables para gráficos
+data <- permiso_analisis 
+var_x <- "Valor_Pagado"
+var_y <- "Tipo_Vehiculo"
+
+# Gráfico de torta
+var_tipo_grafico <- "torta"
+grafico_comparado_prueba(
+  data = data, 
+  var_cuan = var_x, 
+  var_cual = var_y, 
+  tipo_grafico = var_tipo_grafico)
 
 
-grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "lineas", tipo_calculo = "suma")
-grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "lineas", tipo_calculo = "promedio")
-grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "lineas", tipo_calculo = "cuenta")
-grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "caja")
-grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "histograma")
-grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "barra")
-grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "dispercion")
-grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "densidad")
-grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "violin")
-grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "puntos")
-grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "burbujas")
-grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "area ampliada")
-grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "barras ampliadas")
-grafico_comparado(data = permiso_analisis, var_cuant = "Valor_Pagado", var_cual = "Tipo_Vehiculo", tipo_grafico = "torta")
+multiplas
 
+var_x <- "Valor_Pagado"
+var_y <- "Tipo_de_Pago"
 
-  
-
-# Histograma de la permisos pagados
-
-ggplot(permiso_analisis, aes(x=Valor_Pagado)) +
-  geom_histogram(binwidth=5000, fill="blue", color="grey") +
-  scale_x_continuous(labels = scales::comma_format(big.mark = ".", decimal.mark = ",")) +
-  labs(title="Distribución de Salarios",
-       x="Salario",
-       y="Frecuencia") +
-  theme_minimal()
-
-
-
-
-
-# liena temporal mensual con cantidad de permisos y el promedio del pagado
-
-#agrupado mensual con el promedio de pagos y la cantidad e pagos realizados
-resumen_diario <- permiso_analisis %>%
-  group_by(Fecha_Pago) %>%
-  summarise(
-    promedio_valor_pagado = mean(Valor_Pagado, na.rm=TRUE),
-    cantidad_registros = n()
-  )
-
-# Obtener el máximo de la cantidad de registros para ajustar las escalas
-max_count <- max(resumen_diario$cantidad_registros)
-
-# Crear el gráfico combinado
-ggplot(resumen_diario, aes(x=Fecha_Pago)) +
-  geom_bar(aes(y=cantidad_registros), stat="identity", fill="lightblue", alpha=0.6) +
-  geom_line(aes(y=promedio_valor_pagado * (max_count / max(resumen_diario$promedio_valor_pagado))), color="orange", size=1) +
-  geom_point(aes(y=promedio_valor_pagado * (max_count / max(resumen_diario$promedio_valor_pagado))), color="orange", size=1) +
-  labs(title="Cantidad de Registros y Valor Pagado Promedio por Día",
-       x="Fecha de Pago",
-       y="Cantidad de Registros") +
-  scale_y_continuous(
-    name = "Cantidad de Registros",
-    sec.axis = sec_axis(~ . / (max_count / max(resumen_diario$promedio_valor_pagado)), name = "Valor Pagado Promedio")
-  ) +
-  theme_minimal()
+# Gráfico de líneas
+var_tipo_grafico <- "lineas"
+grafico_comparado_prueba(
+  data = data, 
+  var_cuan = var_x, 
+  var_cual = var_y, 
+  tipo_grafico = var_tipo_grafico,
+  var_tiempo = "Fecha_Pago")  
 
 
 
+# Gráfico de líneas
+var_tipo_grafico <- "lineas"
+grafico_comparado_prueba(
+  data = data, 
+  var_cuan = var_x, 
+  var_cual = var_y, 
+  tipo_grafico = var_tipo_grafico)
+
+# Gráfico de caja
+var_tipo_grafico <- "caja"
+grafico_comparado_prueba(
+  data = data, 
+  var_cuan = var_x, 
+  var_cual = var_y, 
+  tipo_grafico = var_tipo_grafico)
+
+
+# Variables para gráficos
+data <- permiso_analisis 
+var_x <- "Valor_Pagado"
+var_y <- "Tipo_Vehiculo"
+
+
+# Gráfico de barras (suma)
+var_tipo_grafico <- "barra"
+var_tipo_calculo <- "suma"
+grafico_comparado_prueba(
+  data = data, 
+  var_cuan = var_x, 
+  var_cual = var_y, 
+  tipo_grafico = var_tipo_grafico,
+  tipo_calculo = var_tipo_calculo)
 
 
 
-
-
-# Gráfico de barras del salario promedio por cargo
-
-permiso_por_tipo_auto <- aggregate(Valor_Pagado ~ Tipo_Vehiculo, data=permiso_analisis, mean)
-
-
-ggplot(permiso_por_tipo_auto, aes(x=reorder(Tipo_Vehiculo, Valor_Pagado), y=Valor_Pagado)) +
-  geom_bar(stat="identity", fill="lightblue") +
-  geom_text(aes(label=scales::comma(Valor_Pagado, big.mark = ".", decimal.mark = ",")), hjust=-0.1) +
-  scale_y_continuous(labels = scales::comma_format(big.mark = ".", decimal.mark = ",")) +
-  labs(title="Salario Promedio por Cargo",
-       x="Cargo",
-       y="Salario Promedio") +
-  coord_flip() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# Gráfico de columnas (suma)
+var_tipo_grafico <- "columnas"
+var_tipo_calculo <- "suma"
+grafico_comparado_prueba(
+  data = data, 
+  var_cuan = var_x, 
+  var_cual = var_y, 
+  tipo_grafico = var_tipo_grafico,
+  tipo_calculo = var_tipo_calculo)
 
 
 
+# Gráfico de columnas (suma)
+var_tipo_grafico <- "columnas"
+var_tipo_calculo <- "suma"
+grafico_comparado_prueba(
+  data = data, 
+  var_cuan = var_x, 
+  var_cual = var_y, 
+  tipo_grafico = var_tipo_grafico,
+  tipo_calculo = var_tipo_calculo)
 
+# Gráfico de densidad
+var_tipo_grafico <- "densidad"
+grafico_comparado_prueba(
+  data = data, 
+  var_cuan = var_x,
+  var_cual = var_y, 
+  tipo_grafico = var_tipo_grafico)
 
-# Calcular por tipo de de vehiculo la cantidad permisos pagados
-cantidad_por_tipo_vehiculo <- aggregate(Valor_Pagado ~ Tipo_Vehiculo, data=permiso_analisis, length)
-colnames(cantidad_por_tipo_vehiculo) <- c("Tipo_Vehiculo", "count")
+# Gráfico de puntos
+var_tipo_grafico <- "puntos"
+grafico_comparado_prueba(
+  data = data, 
+  var_cuan = var_x,
+  var_cual = var_y, 
+  tipo_grafico = var_tipo_grafico)
 
-# Calcular el permiso promedio por tipo de vehículo
-permiso_por_tipo_auto <- aggregate(Valor_Pagado ~ Tipo_Vehiculo, data=permiso_analisis, mean)
+# Gráfico de líneas acumuladas (suma) por año
+var_tipo_grafico <- "lineas acumuladas"
+var_z <- "Ano_Vehiculo"
+var_tipo_calculo <- "suma"
+grafico_comparado_prueba(
+  data = data, 
+  var_cuant = var_x,
+  var_cual = var_y,
+  var_tiempo = var_z, 
+  tipo_grafico = var_tipo_grafico, 
+  tipo_calculo = var_tipo_calculo)
 
-# Combinar las dos tablas
-datos_combinados <- merge(permiso_por_tipo_auto, cantidad_por_tipo_vehiculo, by="Tipo_Vehiculo")
+# Gráfico de líneas acumuladas (suma) por mes y año
+var_tipo_grafico <- "lineas acumuladas"
+var_z <- "Mes"
+var_y <- "Ano"
+var_tipo_calculo <- "suma"
+grafico_comparado_prueba(
+  data = data, 
+  var_cuant = var_x,
+  var_cual = var_y,
+  var_tiempo = var_z, 
+  tipo_grafico = var_tipo_grafico, 
+  tipo_calculo = var_tipo_calculo)
 
-# Obtener el máximo de la cantidad para ajustar las escalas
-max_count <- max(datos_combinados$count)
+# Crear mapa de calor de correlaciones
+mapa_calor_correlaciones(data)
 
-# Crear el gráfico combinado
-ggplot(datos_combinados, aes(x = reorder(Tipo_Vehiculo, Valor_Pagado))) +
-  geom_bar(aes(y = count), stat = "identity", fill = "lightblue", alpha = 0.6) +
-  geom_text(aes(y = count, label = scales::comma(count, big.mark = ".", decimal.mark = ",")), hjust = -0.2, color = "blue", size = 3) +
-  geom_line(aes(y = Valor_Pagado * (max_count / max(Valor_Pagado))), color = "red", size = 1, group = 1) +
-  geom_point(aes(y = Valor_Pagado * (max_count / max(Valor_Pagado))), color = "red", size = 2) +
-  geom_text(aes(y = Valor_Pagado * (max_count / max(Valor_Pagado)), label = scales::comma(Valor_Pagado, big.mark = ".", decimal.mark = ",")), hjust = -0.2, color = "red", size = 3) +
-  scale_y_continuous(
-    name = "Cantidad de Datos",
-    sec.axis = sec_axis(~ . / (max_count / max(datos_combinados$Valor_Pagado)), name = "Permiso Promedio", labels = scales::comma_format(big.mark = ".", decimal.mark = ",")) 
-  ) +
-  labs(title = "Cantidad de Datos y Permiso Pagdos por Tipo de Vehiculo",
-       x = "Tipo de Vehículo") +
-  coord_flip() +
-  theme_minimal()
-
-
-
-
-
-
-# comparativo mensual acumulado por monto de pagos de permisos
-
-
-# Agregar columnas de año y mes
-permiso_analisis <- permiso_analisis %>%
-  mutate(Ano = year(Fecha_Pago),
-         Mes = month(Fecha_Pago, label = TRUE))
-
-# Resumir el valor pagado por año y mes y calcular el monto acumulado
-resumen_mensual <- permiso_analisis %>%
-  group_by(Ano, Mes) %>%
-  summarise(monto_pagado = sum(Valor_Pagado, na.rm=TRUE)) %>%
-  arrange(Ano, Mes) %>%
-  group_by(Ano) %>%
-  mutate(monto_acumulado = cumsum(monto_pagado))
-
-# Crear un gráfico acumulado mensual del monto pagado por año
-ggplot(resumen_mensual, aes(x = Mes, y = monto_acumulado, group = Ano, color = as.factor(Ano))) +
-  geom_line() +
-  geom_point() +
-  geom_text(aes(label = scales::comma(monto_acumulado, big.mark = ".", decimal.mark = ",")),
-            vjust = -0.5, size = 3, color = "black") +
-  labs(title = "Monto Pagado Acumulado Mensualmente por Año",
-       x = "Mes",
-       y = "Monto Pagado Acumulado",
-       color = "Año") +
-  scale_y_continuous(labels = scales::comma_format(big.mark = ".", decimal.mark = ",")) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-
-
-
-#mapa de correlacion
-
-# Seleccionar solo variables numéricas
-numeric_vars <- permiso_analisis %>% select_if(is.numeric)
-
-# Calcular matriz de correlación
-cor_matrix <- cor(numeric_vars, use="complete.obs")
-
-# Visualizar con un mapa de calor
-
-melted_cor_matrix <- melt(cor_matrix)
-
-ggplot(melted_cor_matrix, aes(Var1, Var2, fill=value)) +
-  geom_tile() +
-  scale_fill_gradient2(low = "orange", high = "red", mid = "white", midpoint = 0) +
-  labs(title="Mapa de Calor de Correlaciones",
-       x="Variables",
-       y="Variables") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 
 
