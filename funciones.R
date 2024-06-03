@@ -185,23 +185,26 @@ grafico_combinado <- function(data, var_cuant, var_cual) {
 }
 
 
-grafico_comparado_prueba <- function(data, var_cuant, var_cual, var_tiempo = NULL, tipo_grafico, tipo_calculo = NULL) {
+
+
+# Función para crear diferentes tipos de gráficos 
+grafico <- function(data, var_cuant_x, var_cual_x, var_cuant_y = NULL, tipo_grafico, tipo_calculo = NULL) {
   
   # Definir las variables x, y, t
-  y <- sym(var_cuant)
-  t <- sym(var_cual)
-  x <- if (!is.null(var_tiempo)) sym(var_tiempo) else NULL
+  y <- sym(var_cuant_x)
+  t <- sym(var_cual_x)
+  x <- if (!is.null(var_cuant_y)) sym(var_cuant_y) else NULL
   
   # Asegurar que la variable cualitativa es un factor
-  data[[var_cual]] <- as.factor(data[[var_cual]])
+  data[[var_cual_x]] <- as.factor(data[[var_cual_x]])
   
   # Variables locales para etiquetas
-  label_x <- if (!is.null(var_tiempo)) var_tiempo else var_cual
-  label_y <- var_cuant
-  label_titulo <- paste(tipo_calculo, "de", var_cuant, "por", var_cual)
+  label_x <- if (!is.null(var_cuant_y)) var_cuant_y else var_cual_x
+  label_y <- var_cuant_x
+  label_titulo <- paste(tipo_calculo, "de", var_cuant_x, "por", var_cual_x)
   
-  # Generar una paleta de colores basada en la cantidad de niveles en var_cual
-  niveles <- length(levels(data[[var_cual]]))
+  # Generar una paleta de colores basada en la cantidad de niveles en var_cual_x
+  niveles <- length(levels(data[[var_cual_x]]))
   colores <- scales::hue_pal()(niveles)
   
   # Agrupar y calcular según el tipo de cálculo si es necesario
@@ -275,9 +278,25 @@ grafico_comparado_prueba <- function(data, var_cuant, var_cual, var_tiempo = NUL
                   labs(title = paste("Líneas Acumuladas de", tipo_calculo, "de", label_y, "por", label_x, "de", label_titulo),
                        x = label_x, y = paste(tipo_calculo, "de", label_y))
               },
-              "puntos" = ggplot(data, aes(x = !!t, y = !!y, color = !!t)) +
-                geom_jitter() +
-                labs(title = paste("Puntos de", label_y, "por", label_x), x = label_x, y = label_y),
+              "lineas multiplas" = ggplot(data, aes(x = !!x, y = !!y, color = !!t)) +
+                geom_line() +
+                labs(title = paste("Líneas Múltiples de", label_y, "por", label_x),
+                     x = label_x, y = label_y) +
+                theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)),
+              "puntos" = if (!is.null(var_cuant_y)) {
+                x <- sym(var_cuant_y)
+                ggplot(data, aes(x = !!x, y = !!y, color = !!t)) +
+                  geom_point(size = 3) +
+                  labs(title = paste(var_cuant_x, "vs", var_cuant_y, "por", var_cual_x), x = var_cuant_y, y = var_cuant_x, color = var_cual_x) +
+                  theme_minimal() +
+                  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+              } else {
+                ggplot(data, aes(x = !!x, y = !!y, color = !!t)) +
+                  geom_point(size = 3) +
+                  labs(title = label_titulo, x = label_x, y = label_y, color = var_cual_x) +
+                  theme_minimal() +
+                  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+              },
               "burbujas" = ggplot(data, aes(x = !!t, y = !!y, size = !!y, color = !!t)) +
                 geom_point(alpha = 0.5) +
                 labs(title = paste("Burbujas de", label_y, "por", label_x), x = label_x, y = label_y),
@@ -301,6 +320,7 @@ grafico_comparado_prueba <- function(data, var_cuant, var_cual, var_tiempo = NUL
   # Mostrar el gráfico
   print(p)
 }
+
 
 
 
