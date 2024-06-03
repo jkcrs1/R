@@ -238,8 +238,6 @@ grafico_comparado_prueba(
   tipo_grafico = var_tipo_grafico)
 
 
-multiplas
-
 var_x <- "Valor_Pagado"
 var_y <- "Tipo_de_Pago"
 
@@ -354,10 +352,6 @@ grafico_comparado_prueba(
 
 # Crear mapa de calor de correlaciones
 mapa_calor_correlaciones(data)
-
-
-
-
 
 
 
