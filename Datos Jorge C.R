@@ -17,6 +17,7 @@ source("https://raw.githubusercontent.com/jkcrs1/R/main/funciones.R")
 
 
 
+
 # Permisos circulacion desde 2023 - today
 url3 <- "https://raw.githubusercontent.com/jkcrs1/R/cdcae61126cd9adaa1b4033f0a97441e7d2bb691/permiso_circulacion_2023_2024_calbuco.csv"
 
@@ -221,9 +222,6 @@ print(tabla_estadistica$Resumen)
 
 
 
-
-#graficos por funcion
-
 # Variables para gráficos
 data <- permiso_analisis 
 var_x <- "Valor_Pagado"
@@ -231,127 +229,141 @@ var_y <- "Tipo_Vehiculo"
 
 # Gráfico de torta
 var_tipo_grafico <- "torta"
-grafico_comparado_prueba(
+grafico(
   data = data, 
-  var_cuan = var_x, 
-  var_cual = var_y, 
-  tipo_grafico = var_tipo_grafico)
-
+  var_cuant_x = var_x, 
+  var_cual_x = var_y, 
+  tipo_grafico = var_tipo_grafico
+)
 
 var_x <- "Valor_Pagado"
 var_y <- "Tipo_de_Pago"
 
 # Gráfico de líneas
 var_tipo_grafico <- "lineas"
-grafico_comparado_prueba(
+grafico(
   data = data, 
-  var_cuan = var_x, 
-  var_cual = var_y, 
+  var_cuant_x = var_x, 
+  var_cual_x = var_y, 
   tipo_grafico = var_tipo_grafico,
-  var_tiempo = "Fecha_Pago")  
+  var_cuant_y = "Fecha_Pago"
+)
 
-
-
-# Gráfico de líneas
+# Gráfico de líneas sin variable de tiempo adicional
 var_tipo_grafico <- "lineas"
-grafico_comparado_prueba(
+grafico(
   data = data, 
-  var_cuan = var_x, 
-  var_cual = var_y, 
-  tipo_grafico = var_tipo_grafico)
+  var_cuant_x = var_x, 
+  var_cual_x = var_y, 
+  tipo_grafico = var_tipo_grafico
+)
 
 # Gráfico de caja
 var_tipo_grafico <- "caja"
-grafico_comparado_prueba(
+grafico(
   data = data, 
-  var_cuan = var_x, 
-  var_cual = var_y, 
-  tipo_grafico = var_tipo_grafico)
-
+  var_cuant_x = var_x, 
+  var_cual_x = var_y, 
+  tipo_grafico = var_tipo_grafico
+)
 
 # Variables para gráficos
 data <- permiso_analisis 
 var_x <- "Valor_Pagado"
 var_y <- "Tipo_Vehiculo"
 
-
 # Gráfico de barras (suma)
 var_tipo_grafico <- "barra"
 var_tipo_calculo <- "suma"
-grafico_comparado_prueba(
+grafico(
   data = data, 
-  var_cuan = var_x, 
-  var_cual = var_y, 
-  tipo_grafico = var_tipo_grafico,
-  tipo_calculo = var_tipo_calculo)
-
-
+  var_cuant_x = var_x, 
+  var_cual_x = var_y, 
+  tipo_grafico = var_tipo_grafico, 
+  tipo_calculo = var_tipo_calculo
+)
 
 # Gráfico de columnas (suma)
 var_tipo_grafico <- "columnas"
 var_tipo_calculo <- "suma"
-grafico_comparado_prueba(
+grafico(
   data = data, 
-  var_cuan = var_x, 
-  var_cual = var_y, 
-  tipo_grafico = var_tipo_grafico,
-  tipo_calculo = var_tipo_calculo)
-
-
-
-# Gráfico de columnas (suma)
-var_tipo_grafico <- "columnas"
-var_tipo_calculo <- "suma"
-grafico_comparado_prueba(
-  data = data, 
-  var_cuan = var_x, 
-  var_cual = var_y, 
-  tipo_grafico = var_tipo_grafico,
-  tipo_calculo = var_tipo_calculo)
+  var_cuant_x = var_x, 
+  var_cual_x = var_y, 
+  tipo_grafico = var_tipo_grafico, 
+  tipo_calculo = var_tipo_calculo
+)
 
 # Gráfico de densidad
 var_tipo_grafico <- "densidad"
-grafico_comparado_prueba(
+grafico(
   data = data, 
-  var_cuan = var_x,
-  var_cual = var_y, 
-  tipo_grafico = var_tipo_grafico)
+  var_cuant_x = var_x, 
+  var_cual_x = var_y, 
+  tipo_grafico = var_tipo_grafico
+)
 
 # Gráfico de puntos
 var_tipo_grafico <- "puntos"
-grafico_comparado_prueba(
+grafico(
   data = data, 
-  var_cuan = var_x,
-  var_cual = var_y, 
-  tipo_grafico = var_tipo_grafico)
+  var_cuant_x = var_x, 
+  var_cual_x = var_y, 
+  tipo_grafico = var_tipo_grafico
+)
+
+
+
+
+# Gráfico de puntos
+var_x <- "Valor_Pagado"
+var_y <- "Tasacion"
+var_z <- "Tipo_de_Pago"
+var_tipo_grafico <- "puntos"
+grafico(
+  data = data, 
+  var_cuant_x = var_x, 
+  var_cuant_y = var_y, 
+  var_cual_x = var_z, 
+  tipo_grafico = var_tipo_grafico
+)
+
+
+
 
 # Gráfico de líneas acumuladas (suma) por año
 var_tipo_grafico <- "lineas acumuladas"
 var_z <- "Ano_Vehiculo"
+var_x <- "Valor_Pagado"
+var_y <- "Tipo_de_Pago"
 var_tipo_calculo <- "suma"
-grafico_comparado_prueba(
+grafico(
   data = data, 
-  var_cuant = var_x,
-  var_cual = var_y,
-  var_tiempo = var_z, 
+  var_cuant_x = var_x, 
+  var_cual_x = var_y, 
+  var_cuant_y = var_z, 
   tipo_grafico = var_tipo_grafico, 
-  tipo_calculo = var_tipo_calculo)
+  tipo_calculo = var_tipo_calculo
+)
 
 # Gráfico de líneas acumuladas (suma) por mes y año
 var_tipo_grafico <- "lineas acumuladas"
 var_z <- "Mes"
 var_y <- "Ano"
 var_tipo_calculo <- "suma"
-grafico_comparado_prueba(
+grafico(
   data = data, 
-  var_cuant = var_x,
-  var_cual = var_y,
-  var_tiempo = var_z, 
+  var_cuant_x = var_x, 
+  var_cual_x = var_y, 
+  var_cuant_y = var_z, 
   tipo_grafico = var_tipo_grafico, 
-  tipo_calculo = var_tipo_calculo)
+  tipo_calculo = var_tipo_calculo
+)
+
 
 # Crear mapa de calor de correlaciones
-mapa_calor_correlaciones(data)
+mapa_calor(data)
+
 
 
 
