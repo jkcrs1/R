@@ -185,18 +185,38 @@ grafico_combinado <- function(data, var_cuant, var_cual) {
 }
 
 
-
-
-# Función para crear diferentes tipos de gráficos 
-grafico <- function(data, var_cuant_x, var_cual_x, var_cuant_y = NULL, tipo_grafico, tipo_calculo = NULL) {
+# Función para crear diferentes tipos de gráficos
+grafico <- function(data, var_cuant_x = NULL, var_cual_x = NULL, var_cuant_y = NULL, tipo_grafico, tipo_calculo = NULL) {
+  
+  # Verificar si ambas variables cuantitativa y cualitativa son nulas
+  if (is.null(var_cuant_x) && is.null(var_cual_x)) {
+    if (tipo_grafico == "mapa correlacion") {
+      numeric_vars <- data %>% select_if(is.numeric)
+      cor_matrix <- cor(numeric_vars, use = "complete.obs")
+      melted_cor_matrix <- melt(cor_matrix)
+      colores <- paleta_colores()
+      p <- ggplot(melted_cor_matrix, aes(Var1, Var2, fill = value)) +
+        geom_tile() +
+        scale_fill_gradientn(colors = colores, limits = c(-1, 1)) +
+        labs(title = "Mapa de Calor de Correlaciones", x = "Variables", y = "Variables", caption = "Este gráfico muestra la correlación entre diferentes variables numéricas en el dataset.") +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1))
+      print(p)
+      return()
+    } else {
+      stop("Debe especificar las variables cuantitativa y cualitativa, o elegir 'mapa_correlacion' como tipo de gráfico.")
+    }
+  }
   
   # Definir las variables x, y, t
-  y <- sym(var_cuant_x)
-  t <- sym(var_cual_x)
+  y <- if (!is.null(var_cuant_x)) sym(var_cuant_x) else NULL
+  t <- if (!is.null(var_cual_x)) sym(var_cual_x) else NULL
   x <- if (!is.null(var_cuant_y)) sym(var_cuant_y) else NULL
   
   # Asegurar que la variable cualitativa es un factor
-  data[[var_cual_x]] <- as.factor(data[[var_cual_x]])
+  if (!is.null(var_cual_x)) {
+    data[[var_cual_x]] <- as.factor(data[[var_cual_x]])
+  }
   
   # Variables locales para etiquetas
   label_x <- if (!is.null(var_cuant_y)) var_cuant_y else var_cual_x
@@ -204,7 +224,7 @@ grafico <- function(data, var_cuant_x, var_cual_x, var_cuant_y = NULL, tipo_graf
   label_titulo <- paste(tipo_calculo, "de", var_cuant_x, "por", var_cual_x)
   
   # Generar una paleta de colores basada en la cantidad de niveles en var_cual_x
-  niveles <- length(levels(data[[var_cual_x]]))
+  niveles <- if (!is.null(var_cual_x)) length(levels(data[[var_cual_x]])) else 1
   colores <- scales::hue_pal()(niveles)
   
   # Agrupar y calcular según el tipo de cálculo si es necesario
@@ -224,8 +244,10 @@ grafico <- function(data, var_cuant_x, var_cual_x, var_cuant_y = NULL, tipo_graf
   }
   
   # Ordenar los datos de mayor a menor
-  data <- data %>%
-    arrange(desc(Valor))
+  if (!is.null(y) && !is.null(t)) {
+    data <- data %>%
+      arrange(desc(Valor))
+  }
   
   # Crear el gráfico base
   p <- ggplot(data, aes(x = !!t, y = Valor, fill = !!t)) +
@@ -235,37 +257,68 @@ grafico <- function(data, var_cuant_x, var_cual_x, var_cuant_y = NULL, tipo_graf
   
   # Añadir diferentes tipos de gráficos
   p <- switch(tipo_grafico,
+              "torta" = {
+                data_pie <- data %>%
+                  count(!!t) %>%
+                  mutate(percentage = n / sum(n))
+                ggplot(data_pie, aes(x = "", y = percentage, fill = !!t)) +
+                  geom_bar(stat = "identity", width = 1) +
+                  coord_polar("y") +
+                  geom_text(aes(label = scales::percent(percentage)), position = position_stack(vjust = 0.5)) +
+                  labs(title = paste("Proporción de categorías de", label_x), x = NULL, y = NULL, caption = paste("Este gráfico de torta muestra la proporción de cada categoría de", label_x, ".")) +
+                  theme_void()
+              },
+              "anillo" = {
+                data_pie <- data %>%
+                  count(!!t) %>%
+                  mutate(percentage = n / sum(n))
+                ggplot(data_pie, aes(x = 2, y = percentage, fill = !!t)) +
+                  geom_bar(stat = "identity", width = 1) +
+                  coord_polar(theta = "y") +
+                  xlim(0.5, 2.5) +
+                  geom_text(aes(label = scales::percent(percentage)), position = position_stack(vjust = 0.5)) +
+                  labs(title = paste("Proporción de categorías de", label_x), x = NULL, y = NULL, caption = paste("Este gráfico de anillo muestra la proporción de cada categoría de", label_x, ".")) +
+                  theme_void() +
+                  theme(legend.position = "none",
+                        axis.text = element_blank(),
+                        axis.ticks = element_blank())
+              },
               "caja" = ggplot(data, aes(x = !!t, y = !!y, fill = !!t)) +
                 geom_boxplot() +
-                labs(title = paste("Boxplot de", label_y, "por", label_x), x = label_x, y = label_y),
+                labs(title = paste("Distribución de", label_y, "por categorías de", label_x), x = label_x, y = label_y, caption = paste("Este gráfico de caja muestra la distribución de", label_y, "por las diferentes categorías de", label_x, ".")),
+              "caja con puntos" = ggplot(data, aes(x = !!t, y = !!y, fill = !!t)) +
+                geom_boxplot(alpha = 0.5, outlier.shape = NA) + 
+                geom_jitter(shape = 16, position = position_jitter(0.2), size = 2, alpha = 0.7) +
+                labs(title = paste("Distribución de", label_y, "por categorías de", label_x), x = label_x, y = label_y, caption = paste("Este gráfico de caja con puntos muestra la distribución de", label_y, "por las diferentes categorías de", label_x, ".")) +
+                theme_minimal() +
+                theme(legend.position = "none"),
               "histograma" = ggplot(data, aes(x = !!y, fill = !!t)) +
                 geom_histogram(position = "dodge", binwidth = 10) +
-                labs(title = paste("Histograma de", label_y, "por", label_x), x = label_y, y = "Frecuencia"),
+                labs(title = paste("Distribución de", label_y, "agrupada por", label_x), x = label_y, y = "Frecuencia", caption = paste("Este histograma muestra la distribución de", label_y, "agrupada por las categorías de", label_x, ".")),
               "barra" = ggplot(data, aes(x = reorder(!!t, Valor), y = Valor, fill = !!t)) +
                 geom_bar(stat = "identity") +
                 geom_text(aes(label = scales::comma(Valor, big.mark = ".", decimal.mark = ",")), hjust = 1.2) +
-                labs(title = paste("Barras de", label_y, "por", label_x), x = label_x, y = tipo_calculo) +
+                labs(title = paste("Suma de", label_y, "por categorías de", label_x), x = label_x, y = tipo_calculo, caption = paste("Este gráfico de barras muestra la suma de", label_y, "para cada categoría de", label_x, ".")) +
                 theme(axis.text.y = element_text(hjust = 0.5, vjust = 0.5)) +
                 coord_flip(),
               "columnas" = ggplot(data, aes(x = reorder(!!t, -Valor), y = Valor, fill = !!t)) +
                 geom_col() +
                 geom_text(aes(label = scales::comma(Valor, big.mark = ".", decimal.mark = ",")), vjust = -0.5) +
-                labs(title = paste("Columnas de", label_y, "por", label_x), x = label_x, y = tipo_calculo) +
+                labs(title = paste("Suma de", label_y, "por categorías de", label_x), x = label_x, y = tipo_calculo, caption = paste("Este gráfico de columnas muestra la suma de", label_y, "para cada categoría de", label_x, ".")) +
                 theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)),
               "dispercion" = ggplot(data, aes(x = !!t, y = !!y, color = !!t)) +
                 geom_point() +
-                labs(title = paste("Dispersión de", label_y, "por", label_x), x = label_x, y = label_y),
+                labs(title = paste("Relación entre", label_y, "y", label_x), x = label_x, y = label_y, caption = paste("Este gráfico de dispersión muestra la relación entre", label_y, "y", label_x, ".")),
               "densidad" = ggplot(data, aes(x = !!y, fill = !!t)) +
                 geom_density(alpha = 0.5) +
-                labs(title = paste("Densidad de", label_y, "por", label_x), x = label_y, y = "Densidad"),
+                labs(title = paste("Densidad de", label_y, "por categorías de", label_x), x = label_y, y = "Densidad", caption = paste("Este gráfico de densidad muestra la distribución de", label_y, "para cada categoría de", label_x, ".")),
               "violin" = ggplot(data, aes(x = !!t, y = !!y, fill = !!t)) +
                 geom_violin() +
-                labs(title = paste("Violin de", label_y, "por", label_x), x = label_x, y = label_y),
+                labs(title = paste("Distribución de", label_y, "por categorías de", label_x), x = label_x, y = label_y, caption = paste("Este gráfico de violín muestra la distribución de", label_y, "para cada categoría de", label_x, ".")),
               "lineas" = ggplot(data, aes(x = !!x, y = Valor, color = !!t, group = !!t)) +
                 geom_line() +
                 geom_point() +
-                labs(title = paste("Líneas de", tipo_calculo, "de", label_y, "por", label_x, "de", label_titulo),
-                     x = label_x, y = paste(tipo_calculo, "de", label_y)),
+                labs(title = paste("Tendencia de", tipo_calculo, "de", label_y, "por", label_x), x = label_x, y = paste(tipo_calculo, "de", label_y), caption = paste("Este gráfico de líneas muestra la tendencia de", tipo_calculo, "de", label_y, "a lo largo de", label_x, ".")),
               "lineas acumuladas" = {
                 data <- data %>%
                   group_by(!!t) %>%
@@ -275,41 +328,31 @@ grafico <- function(data, var_cuant_x, var_cual_x, var_cuant_y = NULL, tipo_graf
                   geom_line() +
                   geom_point() +
                   scale_color_manual(values = colores) +
-                  labs(title = paste("Líneas Acumuladas de", tipo_calculo, "de", label_y, "por", label_x, "de", label_titulo),
-                       x = label_x, y = paste(tipo_calculo, "de", label_y))
+                  labs(title = paste("Suma acumulada de", tipo_calculo, "de", label_y, "por", label_x), x = label_x, y = paste(tipo_calculo, "de", label_y), caption = paste("Este gráfico de líneas acumuladas muestra la suma acumulada de", tipo_calculo, "de", label_y, "a lo largo de", label_x, ".")) +
+                  theme_minimal()
               },
-              "lineas multiplas" = ggplot(data, aes(x = !!x, y = !!y, color = !!t)) +
-                geom_line() +
-                labs(title = paste("Líneas Múltiples de", label_y, "por", label_x),
-                     x = label_x, y = label_y) +
-                theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)),
               "puntos" = if (!is.null(var_cuant_y)) {
                 x <- sym(var_cuant_y)
                 ggplot(data, aes(x = !!x, y = !!y, color = !!t)) +
                   geom_point(size = 3) +
-                  labs(title = paste(var_cuant_x, "vs", var_cuant_y, "por", var_cual_x), x = var_cuant_y, y = var_cuant_x, color = var_cual_x) +
+                  labs(title = paste("Relación entre", label_y, "y", label_x), x = label_x, y = label_y, caption = paste("Este gráfico de puntos muestra la relación entre", label_y, "y", label_x, "categorizado por", label_x, ".")) +
                   theme_minimal() +
                   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
               } else {
-                ggplot(data, aes(x = !!x, y = !!y, color = !!t)) +
-                  geom_point(size = 3) +
-                  labs(title = label_titulo, x = label_x, y = label_y, color = var_cual_x) +
-                  theme_minimal() +
-                  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+                stop("El gráfico de puntos requiere una segunda variable cuantitativa.")
               },
               "burbujas" = ggplot(data, aes(x = !!t, y = !!y, size = !!y, color = !!t)) +
                 geom_point(alpha = 0.5) +
-                labs(title = paste("Burbujas de", label_y, "por", label_x), x = label_x, y = label_y),
-              "torta" = {
-                data_pie <- data %>% count(!!t) %>% mutate(percentage = n / sum(n))
-                ggplot(data_pie, aes(x = "", y = percentage, fill = !!t)) +
-                  geom_bar(stat = "identity", width = 1) +
-                  coord_polar("y") +
-                  geom_text(aes(label = scales::percent(percentage)), position = position_stack(vjust = 0.5)) +
-                  labs(title = paste("Gráfico de Torta de", label_x), x = NULL, y = NULL) +
-                  theme_void()
-              },
-              stop(paste(tipo_grafico, " Tipo de gráfico no soportado."))
+                labs(title = paste("Relación entre", label_y, "y", label_x), x = label_x, y = label_y, caption = paste("Este gráfico de burbujas muestra la relación entre", label_y, "y", label_x, "con el tamaño de las burbujas representando", label_y, ".")),
+             
+              "distribucion normal" = {
+                ggplot(data, aes(x = !!y)) +
+                  geom_histogram(aes(y = ..density..), binwidth = 1, fill = "yellow", color = "black") +
+                  stat_function(fun = dnorm, args = list(mean = mean(data[[as.character(y)]], na.rm = TRUE), 
+                                                         sd = sd(data[[as.character(y)]], na.rm = TRUE)), color = "red", size = 1) +
+                  labs(title = paste("Comparación de la distribución de", var_cuant_x, "con una distribución normal"), x = var_cuant_x, y = "Densidad", caption = paste("Este gráfico compara la distribución de", var_cuant_x, "con una distribución normal teórica.")) +
+                  theme_minimal()
+              },stop(paste(tipo_grafico, " Tipo de gráfico no soportado."))
   )
   
   # Aplicar tema minimalista y formato de etiquetas en eje y
@@ -320,36 +363,3 @@ grafico <- function(data, var_cuant_x, var_cual_x, var_cuant_y = NULL, tipo_graf
   # Mostrar el gráfico
   print(p)
 }
-
-
-
-
-# Definir la función para crear el mapa de calor de correlaciones
-mapa_calor <- function(data) {
-  
-  # Seleccionar solo variables numéricas
-  numeric_vars <- data %>% select_if(is.numeric)
-  
-  # Calcular matriz de correlación
-  cor_matrix <- cor(numeric_vars, use = "complete.obs")
-  
-  # Derretir la matriz de correlación
-  melted_cor_matrix <- melt(cor_matrix)
-  
-  # Obtener la paleta de colores
-  colores <- paleta_colores()
-  
-  # Crear el mapa de calor
-  p <- ggplot(melted_cor_matrix, aes(Var1, Var2, fill = value)) +
-    geom_tile() +
-    scale_fill_gradientn(colors = colores, limits = c(-1, 1)) +
-    labs(title = "Mapa de Calor de Correlaciones",
-         x = "Variables",
-         y = "Variables") +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  
-  # Mostrar el gráfico
-  print(p)
-}
-
