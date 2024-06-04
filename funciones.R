@@ -286,12 +286,20 @@ grafico <- function(data, var_cuant_x = NULL, var_cual_x = NULL, var_cuant_y = N
               "caja" = ggplot(data, aes(x = !!t, y = !!y, fill = !!t)) +
                 geom_boxplot() +
                 labs(title = paste("Distribución de", label_y, "por categorías de", label_x), x = label_x, y = label_y, caption = paste("Este gráfico de caja muestra la distribución de", label_y, "por las diferentes categorías de", label_x, ".")),
-              "caja con puntos" = ggplot(data, aes(x = !!t, y = !!y, fill = !!t)) +
-                geom_boxplot(alpha = 0.5, outlier.shape = NA) + 
-                geom_jitter(shape = 16, position = position_jitter(0.2), size = 2, alpha = 0.7) +
-                labs(title = paste("Distribución de", label_y, "por categorías de", label_x), x = label_x, y = label_y, caption = paste("Este gráfico de caja con puntos muestra la distribución de", label_y, "por las diferentes categorías de", label_x, ".")) +
-                theme_minimal() +
-                theme(legend.position = "none"),
+              "caja con puntos" = {
+                niveles <- if (!is.null(var_cual_x)) length(levels(data[[var_cual_x]])) else 1
+                colores <- scales::hue_pal()(niveles)
+                colores_oscuros <- scales::hue_pal()(niveles) %>%
+                  sapply(function(col) adjustcolor(col, alpha.f = 0.8))
+                ggplot(data, aes(x = !!t, y = !!y, fill = !!t)) +
+                  geom_boxplot(alpha = 0.5, outlier.shape = NA) + 
+                  geom_jitter(shape = 16, position = position_jitter(0.2), size = 2, aes(color = !!t), alpha = 0.7) +
+                  scale_fill_manual(values = colores) +
+                  scale_color_manual(values = colores_oscuros) +
+                  labs(title = paste("Distribución de", label_y, "por categorías de", label_x), x = label_x, y = label_y, caption = paste("Este gráfico de caja con puntos muestra la distribución de", label_y, "por las diferentes categorías de", label_x, ".")) +
+                  theme_minimal() +
+                  theme(legend.position = "none")
+              },
               "histograma" = ggplot(data, aes(x = !!y, fill = !!t)) +
                 geom_histogram(position = "dodge", binwidth = 10) +
                 labs(title = paste("Distribución de", label_y, "agrupada por", label_x), x = label_y, y = "Frecuencia", caption = paste("Este histograma muestra la distribución de", label_y, "agrupada por las categorías de", label_x, ".")),
