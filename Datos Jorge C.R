@@ -1,8 +1,4 @@
-
 cat("\014")
-
-#setwd("C:/UDLA/R/R")#diredtorio de R
-
 
 # Cargar librerías necesarias
 library(dplyr)
@@ -11,88 +7,56 @@ library(lubridate)
 library(scales)
 library(prophet)
 library(stringr)
+library(caret)
+library(corrplot)
+library(e1071)
+library(xgboost)
+library(ROSE)
+library(DMwR2)
+library(pROC)
 
 # Enlace raw al archivo de funciones en GitHub
 source("https://raw.githubusercontent.com/jkcrs1/R/main/funciones.R")
 
-
-
-
-# Permisos circulacion desde 2023 - today
+# Permisos circulación desde 2023 - today
 url3 <- "https://raw.githubusercontent.com/jkcrs1/R/cdcae61126cd9adaa1b4033f0a97441e7d2bb691/permiso_circulacion_2023_2024_calbuco.csv"
+permiso <- read.csv(url3, sep = ";")
 
-permiso = read.csv(url3, sep = ";")
-
-permiso = data.frame(permiso)
-#permiso <- data.frame(data("permiso"))
+# Convertir el dataframe
+permiso <- data.frame(permiso)
 str(permiso)
 dim(permiso)
-
 head(permiso)
 
-#cambio de nombres de columnas
-colnames(permiso) <- colnames(permiso) %>%
-  str_replace_all("\\.", "_")
+# Cambio de nombres de columnas
+colnames(permiso) <- colnames(permiso) %>% str_replace_all("\\.", "_")
 
-
-#normaliza de datos 
+# Normalización de datos
 tipo_vehiculo_mapeo <- c(
-  "AMBULANCIA" = "AMBULANCIA",
-  "AUTOMOVIL" = "AUTOMOVIL",
-  "BUS" = "BUS",
-  "Cabriolet" = "AUTOMOVIL",
-  "CAMION" = "CAMION",
-  "CAMIONETA" = "CAMIONETA",
-  "CARRO ARRASTRE A" = "REMOLQUE",
-  "CARRO BOMBA" = "CARRO BOMBA",
-  "CASA RODANTE" = "CASA RODANTE",
-  "Comercial" = "COMERCIAL",
-  "CUATRIMOTO" = "CUATRIMOTO",
-  "FURGON" = "FURGON",
-  "GRUA" = "MAQUINA PESADA",
-  "Hatchback" = "AUTOMOVIL",
-  "JEEP" = "AUTOMOVIL",
-  "MAQUINA INDUSTRIAL" = "MAQUINA INDUSTRIAL",
-  "MINIBUS" = "MINIBUS",
-  "MINIBUS ESCOLAR" = "MINIBUS",
-  "MINIBUS PARTICULAR" = "MINIBUS",
-  "MINIBUS PRIVADO" = "MINIBUS",
-  "MINIBUS TURISMO" = "MINIBUS",
-  "MOTO" = "MOTOCICLETA",
-  "MOTOCICLETA" = "MOTOCICLETA",
-  "OTROS" = "OTROS",
-  "REMOLQUE A" = "REMOLQUE",
-  "REMOLQUE B" = "REMOLQUE",
-  "RETROEXCAVADORA" = "MAQUINA PESADA",
-  "Sedan" = "AUTOMOVIL",
-  "SEMI REMOLQUE" = "REMOLQUE",
-  "STATION WAGON" = "AUTOMOVIL",
-  "SUV" = "SUV",
-  "TAXI EJECUTIVO" = "TAXI",
-  "TAXI BASICO" = "TAXI",
-  "TAXI COLECTIVO" = "TAXI",
-  "TRACTOCAMION" = "CAMION",
-  "TRACTOR" = "TRACTOR",
-  "VAN" = "VAN"
+  "AMBULANCIA" = "AMBULANCIA", "AUTOMOVIL" = "AUTOMOVIL", "BUS" = "BUS",
+  "Cabriolet" = "AUTOMOVIL", "CAMION" = "CAMION", "CAMIONETA" = "CAMIONETA",
+  "CARRO ARRASTRE A" = "REMOLQUE", "CARRO BOMBA" = "CARRO BOMBA",
+  "CASA RODANTE" = "CASA RODANTE", "Comercial" = "COMERCIAL", "CUATRIMOTO" = "CUATRIMOTO",
+  "FURGON" = "FURGON", "GRUA" = "MAQUINA PESADA", "Hatchback" = "AUTOMOVIL",
+  "JEEP" = "AUTOMOVIL", "MAQUINA INDUSTRIAL" = "MAQUINA INDUSTRIAL",
+  "MINIBUS" = "MINIBUS", "MINIBUS ESCOLAR" = "MINIBUS", "MINIBUS PARTICULAR" = "MINIBUS",
+  "MINIBUS PRIVADO" = "MINIBUS", "MINIBUS TURISMO" = "MINIBUS", "MOTO" = "MOTOCICLETA",
+  "MOTOCICLETA" = "MOTOCICLETA", "OTROS" = "OTROS", "REMOLQUE A" = "REMOLQUE",
+  "REMOLQUE B" = "REMOLQUE", "RETROEXCAVADORA" = "MAQUINA PESADA", "Sedan" = "AUTOMOVIL",
+  "SEMI REMOLQUE" = "REMOLQUE", "STATION WAGON" = "AUTOMOVIL", "SUV" = "SUV",
+  "TAXI EJECUTIVO" = "TAXI", "TAXI BASICO" = "TAXI", "TAXI COLECTIVO" = "TAXI",
+  "TRACTOCAMION" = "CAMION", "TRACTOR" = "TRACTOR", "VAN" = "VAN"
 )
 
 tipo_combustible_mapeo <- c(
-  "Benc" = "Bencina",
-  "Dies" = "Diesel",
-  "NULL" = "NULL",
-  "DUAL" = "Hibrido",
-  "Hibr" = "Hibrido",
-  "Elec" = "Electrico"
+  "Benc" = "Bencina", "Dies" = "Diesel", "NULL" = "NULL",
+  "DUAL" = "Hibrido", "Hibr" = "Hibrido", "Elec" = "Electrico"
 )
 
 transmision_mapeo <- c(
-  "Mec" = "Mecanica",
-  "Aut" = "Automatica",
-  "NULL" = "NULL",
-  "CVT" = "Automatica",
-  "DCT" = "Automatica"
+  "Mec" = "Mecanica", "Aut" = "Automatica", "NULL" = "NULL",
+  "CVT" = "Automatica", "DCT" = "Automatica"
 )
-
 
 # Aplicar todas las transformaciones y normalizaciones
 permiso <- permiso %>%
@@ -108,6 +72,7 @@ permiso <- permiso %>%
   mutate(
     Ano_Vehiculo = as.integer(Ano_Vehiculo),
     Valor_Neto = as.numeric(Valor_Neto),
+    Tasacion = as.numeric(Tasacion),
     Fecha_Pago = as.Date(Fecha_Pago, format = "%d-%m-%Y"),
     Ano = year(Fecha_Pago),
     Mes = month(Fecha_Pago, label = TRUE)
@@ -115,51 +80,28 @@ permiso <- permiso %>%
   filter(!is.na(Valor_Pagado) & !is.na(Fecha_Pago) & Valor_Pagado > 0) %>%
   distinct()
 
+sapply(permiso, class)
+
 # Mostrar los primeros registros para verificar
 head(permiso)
-
-
 
 # Verificar valores faltantes
 sum(is.na(permiso))
 
-
-
-
-
-
-
-
-# muestra 10%
-#n <- 0.1 * nrow(permiso)  
-
-#set.seed(1)  
-#cant <- sample(nrow(permiso), n)
-#permiso_muestra <- permiso[cant, ]
-
-
-
-# mustra aleatorio segun Desviacion Estandar
-
-cant=nrow(permiso) 
-sd=sd(permiso$Valor_Pagado)
-n=tam.muestra(alfa=0.05,epsilon=10000,s=sd,N=cant)
-n
-
-
-set.seed(2)  
+# Calcular la muestra aleatoria según Desviación Estándar
+cant <- nrow(permiso)
+sd <- sd(permiso$Valor_Pagado)
+n <- tam.muestra(alfa = 0.05, epsilon = 10000, s = sd, N = cant)
+set.seed(2)
 cant <- sample(nrow(permiso), n)
 permiso_muestra <- permiso[cant, ]
 permiso_muestra <- permiso
 
-
-
-# tratamiento de outliers
-
+# Tratamiento de outliers
 # Calcular el IQR y los límites para identificar valores atípicos
-IQR_Valor_Pagado <- IQR(permiso_muestra$Valor_Pagado, na.rm=TRUE)
-Q1 <- quantile(permiso_muestra$Valor_Pagado, 0.25, na.rm=TRUE)
-Q3 <- quantile(permiso_muestra$Valor_Pagado, 0.75, na.rm=TRUE)
+IQR_Valor_Pagado <- IQR(permiso_muestra$Valor_Pagado, na.rm = TRUE)
+Q1 <- quantile(permiso_muestra$Valor_Pagado, 0.25, na.rm = TRUE)
+Q3 <- quantile(permiso_muestra$Valor_Pagado, 0.75, na.rm = TRUE)
 lower_bound <- Q1 - 1.5 * IQR_Valor_Pagado
 upper_bound <- Q3 + 1.5 * IQR_Valor_Pagado
 
@@ -179,30 +121,9 @@ permiso_reemplazado <- permiso_muestra %>%
   mutate(Valor_Pagado = ifelse(Valor_Pagado < lower_bound, lower_bound,
                                ifelse(Valor_Pagado > upper_bound, upper_bound, Valor_Pagado)))
 
-# Visualización de valores atípicos eliminados
-ggplot(permiso_sin_outliers, aes(y=Valor_Pagado)) +
-  geom_boxplot(fill="lightblue") +
-  labs(title="Diagrama de Caja de Valor Pagado (Sin Outliers)",
-       y="Valor Pagado") +
-  theme_minimal()
-
-# Visualización de transformación logarítmica
-ggplot(permiso_muestra, aes(y=log_Valor_Pagado)) +
-  geom_boxplot(fill="lightblue") +
-  labs(title="Diagrama de Caja de Valor Pagado (Log Transformado)",
-       y="Valor Pagado (Log)") +
-  theme_minimal()
-
-# Visualización de valores atípicos reemplazados
-ggplot(permiso_reemplazado, aes(y=Valor_Pagado)) +
-  geom_boxplot(fill="lightblue") +
-  labs(title="Diagrama de Caja de Valor Pagado (Outliers Reemplazados)",
-       y="Valor Pagado") +
-  theme_minimal()
 
 
 
-#ANALISIS
 
 
 
@@ -214,7 +135,7 @@ permiso_analisis <- permiso
 
 
 
-tabla_estadistica <- tabla_estadistica(permiso, permiso$Valor_Neto, permiso$Tipo_de_Pago)
+tabla_estadistica <- tabla_estadistica(permiso, "Valor_Neto", "Tipo_de_Pago")
 print(tabla_estadistica$Titulo) 
 View(tabla_estadistica$ExplicacionesValores)
 print(tabla_estadistica$Resumen)
@@ -225,7 +146,7 @@ print(tabla_estadistica$Resumen)
 # Variables para gráficos
 data <- permiso_analisis 
 var_x <- "Valor_Pagado"
-var_y <- "Tipo_Vehiculo"
+var_y <- "Grupo_Vehiculo"
 
 # Gráfico de torta
 var_tipo_grafico <- "torta"
@@ -259,7 +180,7 @@ grafico(
 )
 
 # Gráfico de caja
-var_tipo_grafico <- "caja"
+var_tipo_grafico <- "caja con puntos"
 grafico(
   data = data, 
   var_cuant_x = var_x, 
@@ -304,11 +225,13 @@ grafico(
 )
 
 # Gráfico de puntos
+var_cuant_y=
 var_tipo_grafico <- "puntos"
 grafico(
   data = data, 
   var_cuant_x = var_x, 
-  var_cual_x = var_y, 
+  var_cual_x = var_y,
+  va
   tipo_grafico = var_tipo_grafico
 )
 
@@ -317,7 +240,7 @@ grafico(
 
 # Gráfico de puntos
 var_x <- "Valor_Pagado"
-var_y <- "Tasacion"
+var_y <- "Ano_Vehiculo"
 var_z <- "Tipo_de_Pago"
 var_tipo_grafico <- "puntos"
 grafico(
@@ -361,6 +284,14 @@ grafico(
 )
 
 
+
+var_tipo_grafico <- "mapa correlacion"
+grafico(
+  data = data,
+  tipo_grafico = var_tipo_grafico
+)
+
+
 # Crear mapa de calor de correlaciones
 mapa_calor(data)
 
@@ -369,117 +300,89 @@ mapa_calor(data)
 
 
 
-#Modelo 
 
 
+#MODELOS ML
 
+# Definición de la variable objetivo y variables predictoras
+target <- "Pagos_n_meses"
+predictors <- setdiff(names(permiso_reemplazado), target)
 
-library(dplyr)
-library(lubridate)
-library(xgboost)
-library(caret)
-library(ggplot2)
-library(ROSE)
-
-
-# Definir la semilla para reproducibilidad
-set.seed(123)
-# Filtrar solo los vehículos livianos
-vehiculos_livianos <- permiso_analisis %>% filter(Grupo_Vehiculo == "Vehiculo Liviano")
-
-
-# Balanceo de datos usando ROSE
-
-
-balanced_data <- ROSE(Grupo_Vehiculo ~ ., data = permiso_analisis, seed = 123)$data
-
-# Asegúrate de que los datos están balanceados
-table(balanced_data$Grupo_Vehiculo)
-
-
-# Agregar columnas de año y mes
-vehiculos_livianos <- vehiculos_livianos %>%
-  mutate(Ano = year(Fecha_Pago),
-         Mes = month(Fecha_Pago, label = TRUE))
-
-# Resumir la cantidad de vehículos livianos atendidos por año y mes
-resumen_mensual_livianos <- vehiculos_livianos %>%
-  group_by(Ano, Mes) %>%
-  summarise(cantidad = n()) %>%
-  arrange(Ano, Mes)
-
-# Convertir a serie temporal
-resumen_mensual_livianos <- resumen_mensual_livianos %>%
-  mutate(date = as.Date(paste(Ano, Mes, "01", sep = "-"), format = "%Y-%B-%d"))
-
-# Dividir los datos en conjunto de entrenamiento y prueba (80%-20%)
-# Dividir los datos en conjunto de entrenamiento y prueba (80%-20%)
-train_size <- floor(0.8 * nrow(resumen_mensual_livianos))
-train_data <- resumen_mensual_livianos[1:train_size, ]
-test_data <- resumen_mensual_livianos[(train_size + 1):nrow(resumen_mensual_livianos), ]
-
-# Asegurarse de que solo las columnas numéricas se utilicen
-train_matrix <- xgb.DMatrix(data = as.matrix(train_data %>% select(Ano, Mes)),
-                            label = train_data$cantidad)
-test_matrix <- xgb.DMatrix(data = as.matrix(test_data %>% select(Ano, Mes)),
-                           label = test_data$cantidad)
-
-
-# Parámetros del modelo xgboost
-params <- list(
-  objective = "reg:squarederror",
-  eval_metric = "rmse"
+# Modelos
+set.seed(42)
+models <- list(
+  "Logistic Regression" = train(permiso_reemplazado[, predictors], permiso_reemplazado[, target], method = "glm", family = "binomial"),
+  "Decision Tree" = train(permiso_reemplazado[, predictors], permiso_reemplazado[, target], method = "rpart"),
+  "Random Forest" = train(permiso_reemplazado[, predictors], permiso_reemplazado[, target], method = "rf"),
+  "XGBoost" = train(permiso_reemplazado[, predictors], permiso_reemplazado[, target], method = "xgbTree")
 )
 
-# Entrenar el modelo xgboost
-xgb_model <- xgb.train(
-  params = params,
-  data = train_matrix,
-  nrounds = 100,
-  watchlist = list(train = train_matrix, eval = test_matrix),
-  early_stopping_rounds = 10,
-  verbose = 0
-)
+# Evaluación de Modelos
+evaluation_results <- data.frame(Model = character(), Dataset = character(), Accuracy = double(), ROC_AUC = double(), Precision = double(), Recall = double(), F1_Score = double())
 
+datasets <- list("Validation" = list(permiso_reemplazado, permiso_reemplazado), "Test" = list(permiso_reemplazado, permiso_reemplazado))
 
-# Realizar predicciones en el conjunto de prueba
-preds <- predict(xgb_model, newdata = test_matrix)
+for (model_name in names(models)) {
+  model <- models[[model_name]]
+  for (dataset_name in names(datasets)) {
+    data_scaled <- datasets[[dataset_name]][[1]]
+    data_original <- datasets[[dataset_name]][[2]]
+    predictions <- predict(model, data_scaled[, predictors])
+    confusion <- confusionMatrix(predictions, data_original[, target])
+    accuracy <- confusion$overall['Accuracy']
+    roc_auc <- roc(data_original[, target], predict(model, data_scaled[, predictors], type = "prob")[,2])$auc
+    precision <- confusion$byClass['Precision']
+    recall <- confusion$byClass['Recall']
+    f1_score <- confusion$byClass['F1']
+    evaluation_results <- r
+    evaluation_results <- rbind(evaluation_results, data.frame(Model = model_name, Dataset = dataset_name, Accuracy = accuracy, ROC_AUC = roc_auc, Precision = precision, Recall = recall, F1_Score = f1_score))
+  }
+}
 
-# Calcular el RMSE
-rmse <- sqrt(mean((preds - test_data$cantidad)^2))
-cat("RMSE en el conjunto de prueba:", rmse, "\n")
+print(evaluation_results)
 
-# Visualización de las predicciones
-ggplot() +
-  geom_line(data = test_data, aes(x = date, y = cantidad), color = "blue") +
-  geom_line(data = test_data, aes(x = date, y = preds), color = "red") +
-  labs(title = "Predicción de la cantidad de vehículos livianos atendidos",
-       x = "Fecha", y = "Cantidad de Vehículos") +
-  theme_minimal()
+# Validación cruzada y optimización de hiperparámetros para Logistic Regression
+set.seed(42)
+log_reg_grid <- expand.grid(C = c(0.1, 1, 10, 100))
+train_control <- trainControl(method = "cv", number = 5)
+log_reg_cv <- train(permiso_reemplazado[, predictors], permiso_reemplazado[, target], method = "glmnet", trControl = train_control, tuneGrid = log_reg_grid)
+print(log_reg_cv)
 
+# Validación Cruzada para otros modelos
+# Decision Tree
+set.seed(42)
+dt_grid <- expand.grid(cp = seq(0.01, 0.1, by = 0.01))
+dt_cv <- train(permiso_reemplazado[, predictors], permiso_reemplazado[, target], method = "rpart", trControl = train_control, tuneGrid = dt_grid)
+print(dt_cv)
 
-# Crear un data frame con las fechas futuras para los próximos 12 meses
-future_dates <- seq.Date(from = max(resumen_mensual_livianos$date) + months(1),
-                         by = "month", length.out = 12)
+# Random Forest
+set.seed(42)
+rf_grid <- expand.grid(mtry = c(2, 4, 6, 8))
+rf_cv <- train(permiso_reemplazado[, predictors], permiso_reemplazado[, target], method = "rf", trControl = train_control, tuneGrid = rf_grid)
+print(rf_cv)
 
-future_data <- data.frame(
-  Ano = year(future_dates),
-  Mes = month(future_dates, label = TRUE),
-  date = future_dates
-)
+# XGBoost
+set.seed(42)
+xgb_grid <- expand.grid(nrounds = c(50, 100), max_depth = c(3, 6, 9), eta = c(0.01, 0.1, 0.3))
+xgb_cv <- train(permiso_reemplazado[, predictors], permiso_reemplazado[, target], method = "xgbTree", trControl = train_control, tuneGrid = xgb_grid)
+print(xgb_cv)
 
-# Preparar la matriz de características para predicción
-future_matrix <- xgb.DMatrix(data = as.matrix(future_data %>% select(-date)))
+# Prueba de hipótesis para la precisión del modelo
+hypothesis_test_results <- data.frame(Model = character(), p_value = double())
 
-# Realizar predicciones
-future_preds <- predict(xgb_model, newdata = future_matrix)
+for (model_name in names(models)) {
+  model <- models[[model_name]]
+  for (dataset_name in names(datasets)) {
+    data_scaled <- datasets[[dataset_name]][[1]]
+    data_original <- datasets[[dataset_name]][[2]]
+    predictions <- predict(model, data_scaled[, predictors])
+    confusion <- confusionMatrix(predictions, data_original[, target])
+    accuracy <- confusion$overall['Accuracy']
+    if (accuracy >= 0.90) {
+      p_value <- binom.test(sum(predictions == data_original[, target]), length(predictions), p = 0.90)$p.value
+      hypothesis_test_results <- rbind(hypothesis_test_results, data.frame(Model = model_name, p_value = p_value))
+    }
+  }
+}
 
-# Visualización de las predicciones futuras
-future_data$cantidad <- future_preds
-
-ggplot() +
-  geom_line(data = resumen_mensual_livianos, aes(x = date, y = cantidad), color = "blue") +
-  geom_line(data = future_data, aes(x = date, y = cantidad), color = "red") +
-  labs(title = "Predicción de la cantidad de vehículos livianos atendidos para los próximos 12 meses",
-       x = "Fecha", y = "Cantidad de Vehículos") +
-  theme_minimal()
+print(hypothesis_test_results)
