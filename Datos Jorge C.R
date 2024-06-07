@@ -296,15 +296,15 @@ grafico_combinado(
 )
 
 
+
+# Crear mapa de calor de correlaciones
+
 var_tipo_grafico <- "mapa correlacion"
 grafico(
   data = data,
   tipo_grafico = var_tipo_grafico
 )
 
-
-# Crear mapa de calor de correlaciones
-mapa_calor(data)
 
 
 
