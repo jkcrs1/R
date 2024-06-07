@@ -285,6 +285,17 @@ grafico(
 
 
 
+# Gráfico doble eje
+var_z <- "Ano_Vehiculo"
+var_y <- "Tipo_Vehiculo"
+var_tipo_calculo <- "suma"
+grafico_combinado(
+  data = data, 
+  var_cuant =  var_x, 
+  var_cual = var_y
+)
+
+
 var_tipo_grafico <- "mapa correlacion"
 grafico(
   data = data,
