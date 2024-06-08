@@ -14,6 +14,8 @@ library(xgboost)
 library(ROSE)
 library(DMwR2)
 library(pROC)
+install.packages("factoextra")
+library(factoextra)
 
 # Enlace raw al archivo de funciones en GitHub
 source("https://raw.githubusercontent.com/jkcrs1/R/main/funciones.R")
@@ -58,6 +60,12 @@ transmision_mapeo <- c(
   "CVT" = "Automatica", "DCT" = "Automatica"
 )
 
+
+
+
+
+
+
 # Aplicar todas las transformaciones y normalizaciones
 permiso <- permiso %>%
   mutate(
@@ -72,7 +80,7 @@ permiso <- permiso %>%
   mutate(
     Ano_Vehiculo = as.integer(Ano_Vehiculo),
     Valor_Neto = as.numeric(Valor_Neto),
-    Tasacion = as.numeric(Tasacion),
+    #Tasacion = as.numeric(Tasacion),
     Fecha_Pago = as.Date(Fecha_Pago, format = "%d-%m-%Y"),
     Ano = year(Fecha_Pago),
     Mes = month(Fecha_Pago, label = TRUE)
@@ -117,7 +125,7 @@ permiso_sin_outliers <- permiso_muestra %>%
 permiso_muestra$log_Valor_Pagado <- log(permiso_muestra$Valor_Pagado + 1)
 
 # Reemplazar valores atípicos con los límites
-permiso_reemplazado <- permiso_muestra %>%
+data <- permiso_muestra %>%
   mutate(Valor_Pagado = ifelse(Valor_Pagado < lower_bound, lower_bound,
                                ifelse(Valor_Pagado > upper_bound, upper_bound, Valor_Pagado)))
 
@@ -135,10 +143,42 @@ permiso_analisis <- permiso
 
 
 
-tabla_estadistica <- tabla_estadistica(permiso, "Valor_Neto", "Tipo_de_Pago")
-print(tabla_estadistica$Titulo) 
-View(tabla_estadistica$ExplicacionesValores)
-print(tabla_estadistica$Resumen)
+
+
+
+# Crear cluster de la variable valor pagado
+
+# Convertir el vector en un dataframe
+permiso_numerico <- data.frame(Valor_Pagado = permiso_numerico)
+
+
+# Calcular el número óptimo de clusters usando el método del codo
+fviz_nbclust(permiso_numerico, kmeans, method = "wss")+
+  labs(title = "Número óptimo de clusters", x = "Número de clusters k", y = "Total de Suma de Cuadrados") +
+  scale_y_continuous(labels = scales::comma)
+
+# Ejecutar k-means clustering con 3 clusters
+set.seed(123)  # Para reproducibilidad
+kmeans_result <- kmeans(permiso_numerico, centers = 3, nstart = 25)
+
+# Añadir los clusters al dataframe original
+permiso$Cluster <- kmeans_result$cluster
+
+# Añadir decil
+permiso$Decil <- cut(permiso$Valor_Pagado, breaks = quantile(permiso$Valor_Pagado, probs = seq(0, 1, 0.1)), include.lowest = TRUE)
+# Ver los resultados
+print(permiso)
+
+
+
+
+
+
+
+tabla_datos <- tabla_estadistica(permiso_analisis, "Valor_Neto", "Tipo_de_Pago")
+print(tabla_datos$Titulo) 
+View(tabla_datos$ExplicacionesValores)
+print(tabla_datos$Resumen)
 
 
 
@@ -158,7 +198,7 @@ grafico(
 )
 
 var_x <- "Valor_Pagado"
-var_y <- "Tipo_de_Pago"
+var_y <- "Decil"
 
 # Gráfico de líneas
 var_tipo_grafico <- "lineas"
@@ -180,7 +220,7 @@ grafico(
 )
 
 # Gráfico de caja
-var_tipo_grafico <- "caja con puntos"
+var_tipo_grafico <- "caja"
 grafico(
   data = data, 
   var_cuant_x = var_x, 
@@ -195,7 +235,7 @@ var_y <- "Tipo_Vehiculo"
 
 # Gráfico de barras (suma)
 var_tipo_grafico <- "barra"
-var_tipo_calculo <- "suma"
+var_tipo_calculo <- "cuenta"
 grafico(
   data = data, 
   var_cuant_x = var_x, 
@@ -225,8 +265,8 @@ grafico(
 )
 
 # Gráfico de puntos
-var_cuant_y=
-var_tipo_grafico <- "puntos"
+
+  var_tipo_grafico <- "puntos"
 grafico(
   data = data, 
   var_cuant_x = var_x, 
@@ -317,21 +357,21 @@ grafico(
 
 # Definición de la variable objetivo y variables predictoras
 target <- "Pagos_n_meses"
-predictors <- setdiff(names(permiso_reemplazado), target)
+predictors <- setdiff(names(data), target)
 
 # Modelos
 set.seed(42)
 models <- list(
-  "Logistic Regression" = train(permiso_reemplazado[, predictors], permiso_reemplazado[, target], method = "glm", family = "binomial"),
-  "Decision Tree" = train(permiso_reemplazado[, predictors], permiso_reemplazado[, target], method = "rpart"),
-  "Random Forest" = train(permiso_reemplazado[, predictors], permiso_reemplazado[, target], method = "rf"),
-  "XGBoost" = train(permiso_reemplazado[, predictors], permiso_reemplazado[, target], method = "xgbTree")
+  "Logistic Regression" = train(data[, predictors], data[, target], method = "glm", family = "binomial"),
+  "Decision Tree" = train(data[, predictors], data[, target], method = "rpart"),
+  "Random Forest" = train(data[, predictors], data[, target], method = "rf"),
+  "XGBoost" = train(data[, predictors], data[, target], method = "xgbTree")
 )
 
 # Evaluación de Modelos
 evaluation_results <- data.frame(Model = character(), Dataset = character(), Accuracy = double(), ROC_AUC = double(), Precision = double(), Recall = double(), F1_Score = double())
 
-datasets <- list("Validation" = list(permiso_reemplazado, permiso_reemplazado), "Test" = list(permiso_reemplazado, permiso_reemplazado))
+datasets <- list("Validation" = list(data, data), "Test" = list(data, data))
 
 for (model_name in names(models)) {
   model <- models[[model_name]]
@@ -356,26 +396,26 @@ print(evaluation_results)
 set.seed(42)
 log_reg_grid <- expand.grid(C = c(0.1, 1, 10, 100))
 train_control <- trainControl(method = "cv", number = 5)
-log_reg_cv <- train(permiso_reemplazado[, predictors], permiso_reemplazado[, target], method = "glmnet", trControl = train_control, tuneGrid = log_reg_grid)
+log_reg_cv <- train(data[, predictors], data[, target], method = "glmnet", trControl = train_control, tuneGrid = log_reg_grid)
 print(log_reg_cv)
 
 # Validación Cruzada para otros modelos
 # Decision Tree
 set.seed(42)
 dt_grid <- expand.grid(cp = seq(0.01, 0.1, by = 0.01))
-dt_cv <- train(permiso_reemplazado[, predictors], permiso_reemplazado[, target], method = "rpart", trControl = train_control, tuneGrid = dt_grid)
+dt_cv <- train(data[, predictors], data[, target], method = "rpart", trControl = train_control, tuneGrid = dt_grid)
 print(dt_cv)
 
 # Random Forest
 set.seed(42)
 rf_grid <- expand.grid(mtry = c(2, 4, 6, 8))
-rf_cv <- train(permiso_reemplazado[, predictors], permiso_reemplazado[, target], method = "rf", trControl = train_control, tuneGrid = rf_grid)
+rf_cv <- train(data[, predictors], data[, target], method = "rf", trControl = train_control, tuneGrid = rf_grid)
 print(rf_cv)
 
 # XGBoost
 set.seed(42)
 xgb_grid <- expand.grid(nrounds = c(50, 100), max_depth = c(3, 6, 9), eta = c(0.01, 0.1, 0.3))
-xgb_cv <- train(permiso_reemplazado[, predictors], permiso_reemplazado[, target], method = "xgbTree", trControl = train_control, tuneGrid = xgb_grid)
+xgb_cv <- train(data[, predictors], data[, target], method = "xgbTree", trControl = train_control, tuneGrid = xgb_grid)
 print(xgb_cv)
 
 # Prueba de hipótesis para la precisión del modelo
