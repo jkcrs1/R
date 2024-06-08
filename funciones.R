@@ -188,25 +188,56 @@ grafico_combinado <- function(data, var_cuant, var_cual) {
 # Función para crear diferentes tipos de gráficos
 grafico <- function(data, var_cuant_x = NULL, var_cual_x = NULL, var_cuant_y = NULL, tipo_grafico, tipo_calculo = NULL) {
   
-  # Verificar si ambas variables cuantitativa y cualitativa son nulas
-  if (is.null(var_cuant_x) && is.null(var_cual_x)) {
-    if (tipo_grafico == "mapa correlacion") {
-      numeric_vars <- data %>% select_if(is.numeric)
-      cor_matrix <- cor(numeric_vars, use = "complete.obs")
-      melted_cor_matrix <- melt(cor_matrix)
-      colores <- paleta_colores()
-      p <- ggplot(melted_cor_matrix, aes(Var1, Var2, fill = value)) +
-        geom_tile() +
-        scale_fill_gradientn(colors = colores, limits = c(-1, 1)) +
-        labs(title = "Mapa de Calor de Correlaciones", x = "Variables", y = "Variables", caption = "Este gráfico muestra la correlación entre diferentes variables numéricas en el dataset.") +
-        theme_minimal() +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1))
-      print(p)
-      return()
-    } else {
-      stop("Debe especificar las variables cuantitativa y cualitativa, o elegir 'mapa_correlacion' como tipo de gráfico.")
-    }
+   generar_mapa_correlacion <- function(data) {
+    numeric_vars <- data %>% select_if(is.numeric)
+    cor_matrix <- cor(numeric_vars, use = "complete.obs")
+    melted_cor_matrix <- melt(cor_matrix)
+    colores <- paleta_colores()
+    ggplot(melted_cor_matrix, aes(Var1, Var2, fill = value)) +
+      geom_tile() +
+      scale_fill_gradientn(colors = colores, limits = c(-1, 1)) +
+      labs(title = "Mapa de Calor de Correlaciones", x = "Variables", y = "Variables", caption = "Este gráfico muestra la correlación entre diferentes variables numéricas en el dataset.") +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
   }
+  
+  # Función para generar el gráfico del codo
+  generar_grafico_cluster <- function(data, var_cuant_x) {
+    var_cuant_data <- data[[var_cuant_x]]
+    if (!is.numeric(var_cuant_data)) {
+      stop("La variable cuantitativa seleccionada debe ser numérica para el gráfico de cluster")
+    }
+    # Convertir el vector en un dataframe y limpiar los datos
+    var_cuant_data_clean <- data.frame(Valor = var_cuant_data) %>%
+      filter(!is.na(Valor) & !is.nan(Valor) & !is.infinite(Valor))
+    fviz_nbclust(var_cuant_data_clean, kmeans, method = "wss") +
+      labs(title = "Número óptimo de clusters", x = "Número de Clusters k", y = "Suma total de las distancias al cuadrado")+
+      scale_y_continuous(labels = scales::comma) +
+      theme_minimal()
+      
+    
+  }
+  
+  # Verificar el tipo de gráfico y generar el correspondiente
+  switch(tipo_grafico,
+         "mapa correlacion" = {
+           if (is.null(var_cuant_x) && is.null(var_cual_x)) {
+             print(generar_mapa_correlacion(data))
+             return()
+           } else {
+             stop("Debe especificar las variables cuantitativa y cualitativa, o elegir 'mapa correlacion' como tipo de gráfico.")
+           }
+         },
+         "cluster" = {
+           if (!is.null(var_cuant_x)) {
+             print(generar_grafico_cluster(data, var_cuant_x))
+             return()
+           } else {
+             stop("Debe especificar una variable cuantitativa para el gráfico del codo.")
+           }
+         },
+         stop("Tipo de gráfico no soportado.")
+  )
   
   # Definir las variables x, y, t
   y <- if (!is.null(var_cuant_x)) sym(var_cuant_x) else NULL
