@@ -237,8 +237,7 @@ grafico <- function(data, var_cuant_x = NULL, var_cual_x = NULL, var_cuant_y = N
            } else {
              stop("Debe especificar una variable cuantitativa para el gráfico del codo.")
            }
-         },
-         stop("Tipo de gráfico no soportado.")
+         }
   )
   
   # Definir las variables x, y, t
