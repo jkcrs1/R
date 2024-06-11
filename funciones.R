@@ -403,3 +403,101 @@ grafico <- function(data, var_cuant_x = NULL, var_cual_x = NULL, var_cuant_y = N
   # Mostrar el gráfico
   print(p)
 }
+
+
+
+
+
+              grafico_cuantitativo <- function(data, var_cuant_x, tipo_grafico) {
+  # Verificar si la variable es numérica
+  if (!is.numeric(data[[var_cuant_x]])) {
+    stop("La variable cuantitativa seleccionada debe ser numérica.")
+  }
+  
+  # Definir la variable x
+  x <- sym(var_cuant_x)
+  
+  # Crear el gráfico base
+  p <- ggplot(data, aes(x = !!x)) +
+    theme_minimal()
+  
+  # Añadir diferentes tipos de gráficos
+  p <- switch(tipo_grafico,
+              "histograma" = ggplot(data, aes(x = !!x)) +
+                geom_histogram(binwidth = 10) +
+                labs(title = paste("Distribución de", var_cuant_x), x = var_cuant_x, y = "Frecuencia", caption = paste("Este histograma muestra la distribución de", var_cuant_x, ".")),
+              "densidad" = ggplot(data, aes(x = !!x)) +
+                geom_density(alpha = 0.5) +
+                labs(title = paste("Densidad de", var_cuant_x), x = var_cuant_x, y = "Densidad", caption = paste("Este gráfico de densidad muestra la distribución de", var_cuant_x, ".")),
+              "barra" = ggplot(data, aes(x = !!x)) +
+                geom_bar(stat = "count") +
+                labs(title = paste("Frecuencia de", var_cuant_x), x = var_cuant_x, y = "Frecuencia", caption = paste("Este gráfico de barras muestra la frecuencia de", var_cuant_x, ".")),
+              "violin" = ggplot(data, aes(x = factor(1), y = !!x)) +
+                geom_violin() +
+                labs(title = paste("Distribución de", var_cuant_x), x = NULL, y = var_cuant_x, caption = paste("Este gráfico de violín muestra la distribución de", var_cuant_x, ".")),
+              stop(paste(tipo_grafico, " Tipo de gráfico no soportado."))
+  )
+  
+  # Aplicar tema minimalista y formato de etiquetas en eje y
+  p <- p + theme_minimal() +
+    scale_y_continuous(labels = scales::comma_format(big.mark = ".", decimal.mark = ","))
+  
+  # Mostrar el gráfico
+  print(p)
+}
+
+
+
+
+grafico_cualitativo <- function(data, var_cual_x, tipo_grafico) {
+  
+  # Verificar que la variable cualitativa sea un factor
+  if (!is.factor(data[[var_cual_x]])) {
+    data[[var_cual_x]] <- as.factor(data[[var_cual_x]])
+  }
+  
+  # Crear el gráfico base
+  p <- ggplot(data, aes(x = !!sym(var_cual_x), fill = !!sym(var_cual_x))) +
+    theme_minimal()
+  
+  # Añadir diferentes tipos de gráficos
+  p <- switch(tipo_grafico,
+              "torta" = {
+                data_pie <- data %>%
+                  count(!!sym(var_cual_x)) %>%
+                  mutate(percentage = n / sum(n))
+                ggplot(data_pie, aes(x = "", y = percentage, fill = !!sym(var_cual_x))) +
+                  geom_bar(stat = "identity", width = 1) +
+                  coord_polar("y") +
+                  geom_text(aes(label = scales::percent(percentage)), position = position_stack(vjust = 0.5)) +
+                  labs(title = paste("Proporción de categorías de", var_cual_x), x = NULL, y = NULL, caption = paste("Este gráfico de torta muestra la proporción de cada categoría de", var_cual_x, ".")) +
+                  theme_void()
+              },
+              "anillo" = {
+                data_pie <- data %>%
+                  count(!!sym(var_cual_x)) %>%
+                  mutate(percentage = n / sum(n))
+                ggplot(data_pie, aes(x = 2, y = percentage, fill = !!sym(var_cual_x))) +
+                  geom_bar(stat = "identity", width = 1) +
+                  coord_polar(theta = "y") +
+                  xlim(0.5, 2.5) +
+                  geom_text(aes(label = scales::percent(percentage)), position = position_stack(vjust = 0.5)) +
+                  labs(title = paste("Proporción de categorías de", var_cual_x), x = NULL, y = NULL, caption = paste("Este gráfico de anillo muestra la proporción de cada categoría de", var_cual_x, ".")) +
+                  theme_void() +
+                  theme(legend.position = "none",
+                        axis.text = element_blank(),
+                        axis.ticks = element_blank())
+              },
+              "barra" = ggplot(data, aes(x = !!sym(var_cual_x), fill = !!sym(var_cual_x))) +
+                geom_bar() +
+                labs(title = paste("Frecuencia de", var_cual_x), x = var_cual_x, y = "Frecuencia", caption = paste("Este gráfico de barras muestra la frecuencia de", var_cual_x, ".")),
+              stop(paste(tipo_grafico, " Tipo de gráfico no soportado."))
+  )
+  
+  # Aplicar tema minimalista y formato de etiquetas en eje y
+  p <- p + theme_minimal() +
+    scale_y_continuous(labels = scales::comma_format(big.mark = ".", decimal.mark = ","))
+  
+  # Mostrar el gráfico
+  print(p)
+}
