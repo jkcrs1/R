@@ -15,7 +15,7 @@ lapply(required_packages, library, character.only = TRUE)
 
 # Función para reemplazar valores 0, "" y "NULL" con NA
 reemplazar_nulos <- function(x) {
-  ifelse(x %in% c(0, "", "NULL", "Null", "null"), NA, x)
+  ifelse(x %in% c( "", "NULL", "Null", "null"), NA, x)
 }
 
 
