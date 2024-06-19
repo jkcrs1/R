@@ -80,7 +80,7 @@ grafico_cualitativo <- function(data, var_cual_x, tipo_grafico) {
               "barra" = {
                 ggplot(data, aes(x = !!sym(var_cual_x), fill = !!sym(var_cual_x))) +
                   geom_bar() +
-                  geom_text(stat='count', aes(label=..count..), angle = 90, vjust = 0.5) +
+                  geom_text(stat='count', aes(label=after_stat(count)), angle = 90, vjust = 0.5) +
                   labs(title = paste("Frecuencia de", var_cual_x), x = var_cual_x, y = "Frecuencia", caption = paste("Este gráfico de barras muestra la frecuencia de", var_cual_x, ".")) +
                   theme(axis.text.x = element_text(angle = 90, hjust = 1)) + #
                   scale_fill_manual(values = colores) +
