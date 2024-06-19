@@ -13,12 +13,18 @@ for (pkg in required_packages) {
 lapply(required_packages, library, character.only = TRUE)
 
 
-# Función para reemplazar valores 0, "" y "NULL" con NA
+# Función para reemplazar valores  "" y "NULL" con NA
 reemplazar_nulos <- function(x) {
   ifelse(x %in% c( "", "NULL", "Null", "null"), NA, x)
 }
 
-
+# Funcion para reemplzar valores nulos por la mediana de la variable
+reemplazar_por_mediana <- function(x) {
+  if (is.numeric(x) && any(is.na(x))) {
+    x[is.na(x)] <- median(x, na.rm = TRUE)
+  }
+  return(x)
+}
 # Función para determinar el tamaño de la muestra
 tam.muestra <- function(alfa, epsilon, s, N = Inf) {
   za2 <- qnorm(1 - alfa / 2)
