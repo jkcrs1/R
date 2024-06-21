@@ -1,7 +1,9 @@
 # Instalar y cargar las librerías necesarias
 required_packages <- c("ggplot2", "gridExtra", "dplyr", "stringr", 
                        "paletteer","palette", "scales","lubridate",
-                       "prophet","reshape2","e1071","tibble")
+                       "prophet","reshape2","e1071","tibble","forecast",
+                      "xgboost","caret")
+
 installed_packages <- rownames(installed.packages())
 
 for (pkg in required_packages) {
