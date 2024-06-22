@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Definición del Problema/Objetivo de Investigación
+# Objetivo de Investigación
 
 Analizar los datos de permisos de circulación vehicular en Calbuco para identificar patrones y tendencias, y proponer mejoras en la gestión de permisos.
 
@@ -200,25 +200,7 @@ permiso_muestra <- permiso_relevante[cant, ]
 cat("La cantidad de registros de muestra es:", nrow(permiso_muestra))
 ```
 
-## Exploración de Variables
 
-## Detalle por Variables Cuantitativas.
-
-Se realiza un gráfico para cada variable cuantitativa con el fin de explicar su distribución en el conjunto de datos analizado.
-
-### Variable: Grupo Vehiculo
-
-```{r}
-
-var_x <- "Ano_Pago"
-var_tipo_grafico <- "histograma"
-
-grafico(
-  data = permiso_muestra, 
-  var  = var_x, 
-  tipo_grafico = var_tipo_grafico
-)
-```
 
 ### Variable: Tipo de Pago
 
@@ -233,18 +215,6 @@ grafico(
 )
 ```
 
-### Variable: Año
-
-```{r}
-var_x <- "Ano_Vehiculo"
-var_tipo_grafico <- "histograma"
-
-grafico(
-  data = permiso_muestra, 
-  var  = var_x, 
-  tipo_grafico = var_tipo_grafico
-)
-```
 
 ### Variable: Valor Pagado
 
