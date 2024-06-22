@@ -9,11 +9,9 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
 # Definición del Problema/Objetivo de Investigación
 
 Analizar los datos de permisos de circulación vehicular en Calbuco para identificar patrones y tendencias, y proponer mejoras en la gestión de permisos.
-
 
 # Introducción
 
@@ -21,16 +19,17 @@ Analizar los datos de permisos de circulación vehicular en Calbuco para identif
 
 El conjunto de datos seleccionado para este análisis proviene de los registros de permisos de circulación en la Municipalidad de Calbuco. Este conjunto de datos contiene información detallada sobre vehículos y sus permisos de circulación, incluyendo variables como el tipo de vehículo, año de fabricación, marca, modelo, color, tipo de combustible, y valor del permiso, entre otros.
 
-
 ## Objetivos del Análisis
 
 El objetivo principal de este análisis es investigar y comprender los patrones y tendencias en los permisos de circulación vehicular en Calbuco. Específicamente, se busca:
 
-	1.	Identificar las características más comunes de los vehículos que obtienen permisos de circulación.
-	2.	Analizar la distribución temporal de la obtención de permisos.
-	3.	Explorar posibles relaciones entre las características de los vehículos y el costo del permiso.
-	4.	Proporcionar insights que puedan ayudar a la municipalidad a optimizar sus procesos de emisión de permisos y a los ciudadanos a comprender mejor los factores que influyen en los costos de los permisos.
-	
+```         
+1.  Identificar las características más comunes de los vehículos que obtienen permisos de circulación.
+2.  Analizar la distribución temporal de la obtención de permisos.
+3.  Explorar posibles relaciones entre las características de los vehículos y el costo del permiso.
+4.  Proporcionar insights que puedan ayudar a la municipalidad a optimizar sus procesos de emisión de permisos y a los ciudadanos a comprender mejor los factores que influyen en los costos de los permisos.
+```
+
 # Procesamiento de Datos
 
 El preprocesamiento de datos es un paso crucial para garantizar que los datos estén limpios y listos para el análisis. A continuación, se detallan los pasos tomados para limpiar y preparar los datos
@@ -51,10 +50,9 @@ library(factoextra)
 library(kableExtra)
 library(summarytools)
 library(httr)
-
+library(zoo)
 
 ```
-
 
 ## Cargas funciones y base de datos
 
@@ -82,8 +80,6 @@ st_options(style = "rmarkdown", plain.ascii = FALSE)
 dfSummary(permiso) %>%
   print(method = 'render')
 ```
-
-
 
 ## Normalización de las Variables
 
@@ -150,7 +146,6 @@ permiso <- permiso %>%
 
 ```
 
-
 ## Traformación de variables categoricas a Factor
 
 Para asegurar un análisis e interpretación adecuados de los datos, las variables categóricas se transforman a factores.
@@ -165,13 +160,12 @@ permiso <- permiso %>%
 
 # Análisis Exploratorio de Datos (EDA)
 
-## Seleccionar variables relevantes 
+## Seleccionar variables relevantes
+
 ```{r}
 permiso_relevante <-  permiso %>%
   select(Grupo_Vehiculo, Ano_Vehiculo,Tipo_de_Pago,Fecha_Pago,Ano_Pago,Mes_Pago_texto,Mes_Pago,Valor_Neto,Valor_IPC,Valor_Multa,Valor_Pagado,Forma_Pago,Tipo_Vehiculo,Marca)
 ```
-
-
 
 ## Visualización de la Distribución de la Variable “Grupo Vehiculo”
 
@@ -189,7 +183,7 @@ grafico(
 )
 ```
 
-## Muestreo 
+## Muestreo
 
 Para asegurar una representación adecuada de cada grupo, realizaremos un muestreo estratificado de los datos. Este proceso garantiza que cada estrato (grupo) esté proporcionalmente representado en la muestra.
 
@@ -205,9 +199,6 @@ permiso_muestra <- permiso_relevante[cant, ]
 
 cat("La cantidad de registros de muestra es:", nrow(permiso_muestra))
 ```
-
-
-
 
 ## Exploración de Variables
 
@@ -229,11 +220,6 @@ grafico(
 )
 ```
 
-
-
-
-
-
 ### Variable: Tipo de Pago
 
 ```{r}
@@ -247,8 +233,6 @@ grafico(
 )
 ```
 
-
-
 ### Variable: Año
 
 ```{r}
@@ -261,9 +245,6 @@ grafico(
   tipo_grafico = var_tipo_grafico
 )
 ```
-
-
-
 
 ### Variable: Valor Pagado
 
@@ -298,7 +279,6 @@ grafico(
 
 ```
 
-
 ## Tratamiento de Outliers
 
 ```{r}
@@ -325,8 +305,7 @@ cat("Número de registros sin outliers:", nrow(permiso_sin_outliers), "\n")
 permiso_muestra<- permiso_sin_outliers
 ```
 
-
-### Variable: Valor Pagado sin outliers 
+### Variable: Valor Pagado sin outliers
 
 ```{r}
 vehiculo_liviano_dataset <- permiso_muestra %>% filter(`Grupo_Vehiculo` == "Vehiculo Liviano")
@@ -372,9 +351,6 @@ grafico_dispersion(
 )
 ```
 
-
-
-
 ```{r}
 
 
@@ -401,6 +377,37 @@ ggplot(permiso_muestra, aes(x = `Tipo_Vehiculo`, y = `Valor_Pagado`)) +
 
 
 
+## Distribucion de Pagos en Grupos de Vehiculos por Meses Relativos 
+
+```{r}
+# Filtrar y transformar los datos
+
+# Calcular el mes relativo
+permiso_muestra <- permiso_muestra %>%
+  arrange(Fecha_Pago) %>%
+  group_by(Grupo_Vehiculo) %>%
+  mutate(
+    Fecha_Relativa = as.yearmon(Fecha_Pago),
+    Mes_Relativo = as.integer((min(Fecha_Relativa) - Fecha_Relativa) * 12)
+  ) %>%
+  ungroup()
+
+# Resumir los datos por mes relativo y grupo de vehículo
+pagos_por_mes_relativo <- permiso_muestra %>%
+  group_by(Grupo_Vehiculo, Mes_Relativo) %>%
+  summarise(Cantidad_Pagos = n(), .groups = 'drop')
+
+# Crear el gráfico
+ggplot(pagos_por_mes_relativo, aes(x = Mes_Relativo, y = Cantidad_Pagos, color = Grupo_Vehiculo)) +
+  geom_line(size = 1) +
+  facet_wrap(~ Grupo_Vehiculo, scales = "free_y") +
+  labs(title = "Pagos Realizados por Mes Relativo",
+       x = "Mes Relativo",
+       y = "Cantidad de Pagos",
+       color = "Grupo de Vehículo") +
+  theme_minimal()
+```
+
 
 
 ## Valores Nulos y reemplazar por la Mediana
@@ -413,10 +420,7 @@ permiso_muestra <- permiso_muestra %>%
   mutate(across(everything(), reemplazar_por_mediana))
 ```
 
-
-
 ## Descripcion de Variables normalizadas
-
 
 ```{r}
 # Configurar el entorno de summarytools para HTML
@@ -426,6 +430,7 @@ st_options(style = "rmarkdown", plain.ascii = FALSE)
 dfSummary(permiso_muestra) %>%
   print(method = 'render')
 ```
+
 # 4. Modelado de Datos
 
 Aplicación de técnicas de modelado de datos y algoritmos de aprendizaje automático para estimar la cantidad de permisos que se pagarán en los próximos 6 meses por grupo y tipo de vehículo.
@@ -435,20 +440,21 @@ Aplicación de técnicas de modelado de datos y algoritmos de aprendizaje autom�
 ### 1. Selección del Modelo
 
 Para este análisis, seleccionaremos tres modelos:
-
-	1.	Regresión Lineal Múltiple: Este modelo es fácil de interpretar y puede proporcionar una línea base para la comparación con otros modelos más complejos.
-	2.	Árboles de Decisión: Los árboles de decisión son útiles para capturar interacciones no lineales entre las variables y proporcionan interpretaciones claras de las decisiones del modelo.
-	3.	XGBoost: Un algoritmo de boosting que combina múltiples árboles de decisión para mejorar la precisión y el rendimiento del modelo.
+       
+1.  Regresión Lineal Múltiple: Este modelo es fácil de interpretar y puede proporcionar una línea base para la comparación con otros modelos más complejos.
+2.  Árboles de Decisión: Los árboles de decisión son útiles para capturar interacciones no lineales entre las variables y proporcionan interpretaciones claras de las decisiones del modelo.
+3.  XGBoost: Un algoritmo de boosting que combina múltiples árboles de decisión para mejorar la precisión y el rendimiento del modelo.
 
 
 ### 2. Entrenamiento y Evaluación
 
-### Seleccionar Datos
-Se seleccionan los datos hasta el 2018
-
+### Seleccionar los datos
 ```{r}
 
+# Configurar semilla para reproducibilidad
 set.seed(123)
+
+# Filtrar los datos hasta el año 2018
 filtered_permiso_muestra <- permiso_muestra %>%
   filter(Ano_Pago <= 2018)
 
@@ -456,13 +462,11 @@ filtered_permiso_muestra <- permiso_muestra %>%
 tamano_muestra <- min(filtered_permiso_muestra %>% count(Grupo_Vehiculo) %>% pull(n))
 
 # Muestreo estratificado para asegurar la misma cantidad de datos por categoría
-
 filtered_permiso_muestra <- filtered_permiso_muestra %>%
   group_by(Grupo_Vehiculo) %>%
   sample_n(tamano_muestra) %>%
   ungroup()
 
-# Visualización de la distribución de la variable "Grupo Vehiculo"
 
 var_x <- "Grupo_Vehiculo"
 var_tipo_grafico <- "barra"
@@ -473,72 +477,48 @@ grafico(
   tipo_grafico = var_tipo_grafico
 )
 
-
 ```
 
 
-### Creacion de variable de cantidad de permisos por grupo de vehículo
 
+### Seleccionar Datos
 ```{r}
 
+# Calcular el mes relativo
+filtered_permiso_muestra <- filtered_permiso_muestra %>%
+  arrange(Fecha_Pago) %>%
+  group_by(Grupo_Vehiculo) %>%
+  mutate(
+    Fecha_Relativa = as.yearmon(Fecha_Pago),
+    Mes_Relativo = as.integer((min(Fecha_Relativa) - Fecha_Relativa) * 12)
+  ) %>%
+  ungroup()
+
+# Crear la variable de cantidad de permisos por grupo de vehículo
 cantidad_permisos <- filtered_permiso_muestra %>%
-  group_by(Grupo_Vehiculo, Ano_Pago, Mes_Pago) %>%
-  summarise(Cantidad_Permisos = n(),
-            .groups = 'drop')
-```
+  group_by(Grupo_Vehiculo, Mes_Relativo) %>%
+  summarise(Cantidad_Permisos = n(), .groups = 'drop')
 
+# Preparar datos con todas las variables
+datos_completos <- filtered_permiso_muestra %>%
+  left_join(cantidad_permisos, by = c("Grupo_Vehiculo", "Mes_Relativo"))
 
-Dividiremos los datos en conjuntos de entrenamiento y prueba, entrenaremos los modelos, y evaluaremos su desempeño utilizando métricas adecuadas.
+# Convertir variables categóricas a factores
+datos_completos <- datos_completos %>%
+  mutate_if(is.character, as.factor)
 
-
-```{r}
 # Dividir los datos en conjuntos de entrenamiento (80%) y prueba (20%)
 set.seed(1234)
-trainIndex <- createDataPartition(cantidad_permisos$Cantidad_Permisos, p = .8, 
+trainIndex <- createDataPartition(datos_completos$Cantidad_Permisos, p = .8, 
                                   list = FALSE, 
                                   times = 1)
-permisoTrain <- cantidad_permisos[trainIndex,]
-permisoTest  <- cantidad_permisos[-trainIndex,]
+permisoTrain <- datos_completos[trainIndex,]
+permisoTest  <- datos_completos[-trainIndex,]
 
-# Ajustar los niveles de los factores en el conjunto de prueba para que coincidan con los del conjunto de entrenamiento
+# Asegurar que los niveles de las variables categóricas sean consistentes entre entrenamiento y prueba
 permisoTest <- permisoTest %>%
-  mutate(Grupo_Vehiculo = factor(Grupo_Vehiculo, levels = levels(permisoTrain$Grupo_Vehiculo)))
+  mutate(across(where(is.factor), ~ factor(.x, levels = levels(permisoTrain[[cur_column()]]))))
 
-```
-
-### Regresión Lineal Múltiple para cantidad de permisos
-
-```{r}
-
-#Modelo
-modelo_rlm_cantidad <- lm(Cantidad_Permisos ~ ., data = permisoTrain)
-summary(modelo_rlm_cantidad)
-
-# Predicciones y evaluación del modelo para cantidad de permisos
-pred_rlm_cantidad <- predict(modelo_rlm_cantidad, permisoTest)
-rmse_rlm_cantidad <- RMSE(pred_rlm_cantidad, permisoTest$Cantidad_Permisos)
-rsq_rlm_cantidad <- R2(pred_rlm_cantidad, permisoTest$Cantidad_Permisos)
-
-```
-
-### Árbol de Decisión para cantidad de permisos
-
-```{r}
-# Modelo 
-modelo_arbol_cantidad <- train(Cantidad_Permisos ~ ., data = permisoTrain, method = "rpart", 
-                               trControl = trainControl(method = "cv", number = 10))
-summary(modelo_arbol_cantidad)
-
-# Predicciones y evaluación del modelo para cantidad de permisos
-pred_arbol_cantidad <- predict(modelo_arbol_cantidad, permisoTest)
-rmse_arbol_cantidad <- RMSE(pred_arbol_cantidad, permisoTest$Cantidad_Permisos)
-rsq_arbol_cantidad <- R2(pred_arbol_cantidad, permisoTest$Cantidad_Permisos)
-
-```
-
-### XGBoost para cantidad de permisos
-
-```{r}
 # Convertir variables categóricas a indicadores binarios (dummies)
 permisoTrain_matrix <- model.matrix(~ . - 1, data = permisoTrain %>% select(-Cantidad_Permisos))
 permisoTest_matrix <- model.matrix(~ . - 1, data = permisoTest %>% select(-Cantidad_Permisos))
@@ -547,74 +527,38 @@ permisoTest_matrix <- model.matrix(~ . - 1, data = permisoTest %>% select(-Canti
 dtrain_cantidad <- xgb.DMatrix(data = permisoTrain_matrix, label = permisoTrain$Cantidad_Permisos)
 dtest_cantidad <- xgb.DMatrix(data = permisoTest_matrix, label = permisoTest$Cantidad_Permisos)
 
+# Definir parámetros para el modelo XGBoost
 params <- list(booster = "gbtree", objective = "reg:squarederror", eta = 0.3, max_depth = 6)
+
+# Entrenar el modelo XGBoost
 modelo_xgb_cantidad <- xgb.train(params, dtrain_cantidad, nrounds = 100)
 
-# Predicciones y evaluación del modelo para cantidad de permisos
+# Evaluar el modelo
 pred_xgb_cantidad <- predict(modelo_xgb_cantidad, dtest_cantidad)
 rmse_xgb_cantidad <- RMSE(pred_xgb_cantidad, permisoTest$Cantidad_Permisos)
 rsq_xgb_cantidad <- R2(pred_xgb_cantidad, permisoTest$Cantidad_Permisos)
 
-```
-
-### Resultados
-
-```{r}
-# resultados
+# Mostrar resultados del modelo
 resultados_cantidad <- tibble(
-  Modelo = c("Regresión Lineal Múltiple", "Árbol de Decisión", "XGBoost"),
-  RMSE = c(rmse_rlm_cantidad, rmse_arbol_cantidad, rmse_xgb_cantidad),
-  R2 = c(rsq_rlm_cantidad, rsq_arbol_cantidad, rsq_xgb_cantidad)
+  Modelo = "XGBoost",
+  RMSE = rmse_xgb_cantidad,
+  R2 = rsq_xgb_cantidad
 )
 
 print(resultados_cantidad)
+
+
 ```
 
 
-
-### Prediccion
-
-```{r}
-# Predicciones para los próximos 6 meses
-future_data <- tibble(
-  Grupo_Vehiculo = factor(rep("Vehiculo Liviano", 6), levels = levels(cantidad_permisos$Grupo_Vehiculo)),
-  Ano_Pago = rep(2024, 6),
-  Mes_Pago = c(1, 2, 3, 4, 5, 6)
-)
-
-
-# Convertir el dataset future_data a matriz para XGBoost
-future_data_matrix <- model.matrix(~ . - 1, data = future_data)
-
-# Predicciones con Regresión Lineal Múltiple
-pred_future_rlm_cantidad <- predict(modelo_rlm_cantidad, future_data)
-
-# Predicciones con Árbol de Decisión
-pred_future_arbol_cantidad <- predict(modelo_arbol_cantidad, future_data)
-
-# Predicciones con XGBoost
-d_future_cantidad <- xgb.DMatrix(data = future_data_matrix)
-pred_future_xgb_cantidad <- predict(modelo_xgb_cantidad, d_future_cantidad)
-
-
-
-# Crear un DataFrame con todas las predicciones
-predicciones_futuras <- future_data %>%
-  mutate(
-    RLM_Cantidad_Permisos = pred_future_rlm_cantidad,
-    Arbol_Cantidad_Permisos = pred_future_arbol_cantidad,
-    XGB_Cantidad_Permisos = pred_future_xgb_cantidad
-  )
-
-print(predicciones_futuras)
-```
 
 
 ## 5. Interpretación de Resultados
 
 Discusión de los Resultados del Análisis:
 
-	•	Interpretación de los coeficientes del modelo de regresión.
-	•	Identificación de las variables más influyentes.
-	•	Recomendaciones basadas en los hallazgos del análisis.
+      
+•   Interpretación de los coeficientes del modelo de regresión.
+•   Identificación de las variables más influyentes.
+•   Recomendaciones basadas en los hallazgos del análisis.
 
