@@ -1,0 +1,620 @@
+---
+title: "Evaluacion 1"
+author: "Jorge Cáceres Barrales"
+date: "2024-06-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Definición del Problema/Objetivo de Investigación
+
+Analizar los datos de permisos de circulación vehicular en Calbuco para identificar patrones y tendencias, y proponer mejoras en la gestión de permisos.
+
+
+# Introducción
+
+## Descripción del Conjunto de Datos
+
+El conjunto de datos seleccionado para este análisis proviene de los registros de permisos de circulación en la Municipalidad de Calbuco. Este conjunto de datos contiene información detallada sobre vehículos y sus permisos de circulación, incluyendo variables como el tipo de vehículo, año de fabricación, marca, modelo, color, tipo de combustible, y valor del permiso, entre otros.
+
+
+## Objetivos del Análisis
+
+El objetivo principal de este análisis es investigar y comprender los patrones y tendencias en los permisos de circulación vehicular en Calbuco. Específicamente, se busca:
+
+	1.	Identificar las características más comunes de los vehículos que obtienen permisos de circulación.
+	2.	Analizar la distribución temporal de la obtención de permisos.
+	3.	Explorar posibles relaciones entre las características de los vehículos y el costo del permiso.
+	4.	Proporcionar insights que puedan ayudar a la municipalidad a optimizar sus procesos de emisión de permisos y a los ciudadanos a comprender mejor los factores que influyen en los costos de los permisos.
+	
+# Procesamiento de Datos
+
+El preprocesamiento de datos es un paso crucial para garantizar que los datos estén limpios y listos para el análisis. A continuación, se detallan los pasos tomados para limpiar y preparar los datos
+
+## Carga Librerias
+
+```{r}
+# Cargar librerías necesarias
+library(dplyr)
+library(stringr)
+library(caret)
+library(corrplot)
+library(e1071)
+library(xgboost)
+library(ROSE)
+library(pROC)
+library(factoextra)
+library(kableExtra)
+library(summarytools)
+library(httr)
+
+
+```
+
+
+## Cargas funciones y base de datos
+
+```{r}
+# Enlace raw al archivo de funciones en GitHub
+source("https://raw.githubusercontent.com/jkcrs1/R/main/funciones.R")
+
+# Permisos circulación  pagados en la municipalidad de calbuco
+url3 <- "https://github.com/jkcrs1/R/raw/main/permiso_circulacion_calbuco.csv"
+
+# Prueba con diferentes codificaciones
+permiso <- read.csv(url3, sep = ";", fileEncoding = "ISO-8859-1")
+
+```
+
+## Tipos de Variables
+
+Utilizando el paquete summarytools, se genera un resumen detallado de todas las variables del dataframe. Este informe incluye estadísticas descriptivas, frecuencias, gráficos de barras para variables categóricas y otras visualizaciones útiles para el análisis de datos.
+
+```{r}
+# Configurar el entorno de summarytools para HTML
+st_options(style = "rmarkdown", plain.ascii = FALSE)
+
+# Obtener un resumen de los datos utilizando summarytools y renderizar en HTML
+dfSummary(permiso) %>%
+  print(method = 'render')
+```
+
+
+
+## Normalización de las Variables
+
+Se procede a normalizar y limpiar el conjunto de datos, asegurando que las variables estén en el formato correcto y que los valores nulos se manejen adecuadamente.
+
+```{r}
+# Convertir el dataframe
+permiso <- data.frame(permiso)
+
+# Cambio de nombres de columnas
+colnames(permiso) <- colnames(permiso) %>% str_replace_all("\\.", "_")
+
+# Normalización de datos
+tipo_vehiculo_mapeo <- c(
+  "AMBULANCIA" = "AMBULANCIA", "AUTOMOVIL" = "AUTOMOVIL", "BUS" = "BUS",
+  "Cabriolet" = "AUTOMOVIL", "CAMION" = "CAMION", "CAMIONETA" = "CAMIONETA",
+  "CARRO ARRASTRE A" = "REMOLQUE", "CARRO BOMBA" = "CARRO BOMBA",
+  "CASA RODANTE" = "CASA RODANTE", "Comercial" = "COMERCIAL", "CUATRIMOTO" = "CUATRIMOTO",
+  "FURGON" = "FURGON", "GRUA" = "MAQUINA PESADA", "Hatchback" = "AUTOMOVIL",
+  "JEEP" = "AUTOMOVIL", "MAQUINA INDUSTRIAL" = "MAQUINA INDUSTRIAL",
+  "MINIBUS" = "MINIBUS", "MINIBUS ESCOLAR" = "MINIBUS", "MINIBUS PARTICULAR" = "MINIBUS",
+  "MINIBUS PRIVADO" = "MINIBUS", "MINIBUS TURISMO" = "MINIBUS", "MOTO" = "MOTOCICLETA",
+  "MOTOCICLETA" = "MOTOCICLETA", "OTROS" = "OTROS", "REMOLQUE A" = "REMOLQUE",
+  "REMOLQUE B" = "REMOLQUE", "RETROEXCAVADORA" = "MAQUINA PESADA", "Sedan" = "AUTOMOVIL",
+  "SEMI REMOLQUE" = "REMOLQUE", "STATION WAGON" = "AUTOMOVIL", "SUV" = "SUV",
+  "TAXI EJECUTIVO" = "TAXI", "TAXI BASICO" = "TAXI", "TAXI COLECTIVO" = "TAXI",
+  "TRACTOCAMION" = "CAMION", "TRACTOR" = "TRACTOR", "VAN" = "VAN"
+)
+
+tipo_combustible_mapeo <- c(
+  "Benc" = "Bencina", "Dies" = "Diesel", "NULL" = "NULL",
+  "DUAL" = "Hibrido", "Hibr" = "Hibrido", "Elec" = "Electrico"
+)
+
+transmision_mapeo <- c(
+  "Mec" = "Mecanica", "Aut" = "Automatica", "NULL" = "NULL",
+  "CVT" = "Automatica", "DCT" = "Automatica"
+)
+
+
+# Aplicar todas las transformaciones y normalizaciones
+permiso <- permiso %>%
+  mutate(
+    Tipo_Vehiculo = recode(Tipo_Vehiculo, !!!tipo_vehiculo_mapeo),
+    Tipo_Combustible = recode(Tipo_Combustible, !!!tipo_combustible_mapeo),
+    Transmision = recode(Transmision, !!!transmision_mapeo),
+    across(everything(), reemplazar_nulos),
+    across(c(Municipalidad, Grupo_Vehiculo, Placa, Digito, Codigo_SII,
+             Forma_Pago, Tipo_Vehiculo, Marca, Modelo, Color,
+             Transmision, Tipo_Combustible, Equipamiento), str_to_title)
+  ) %>%
+  mutate(
+    Ano_Vehiculo = as.integer(Ano_Vehiculo),
+    Valor_Multa = suppressWarnings(as.numeric(as.character(Valor_Multa))),
+    Valor_Neto = suppressWarnings(as.numeric(as.character(Valor_Neto))),
+    Valor_Pagado = suppressWarnings(as.numeric(as.character(Valor_Pagado))),
+    Fecha_Pago = as.Date(Fecha_Pago, format = "%d-%m-%y"),
+    Ano_Pago = year(Fecha_Pago),
+    Mes_Pago_texto = month(Fecha_Pago, label = TRUE),
+    Mes_Pago = month(Fecha_Pago)
+  ) %>%
+  filter(!is.na(Valor_Pagado) & !is.na(Fecha_Pago) & Valor_Pagado > 0) %>%
+  distinct()
+
+```
+
+
+## Traformación de variables categoricas a Factor
+
+Para asegurar un análisis e interpretación adecuados de los datos, las variables categóricas se transforman a factores.
+
+```{r}
+
+# Transformar las variables a factor con los niveles definidos
+permiso <- permiso %>%
+  mutate(across(where(is.character), as.factor))  
+ 
+```
+
+# Análisis Exploratorio de Datos (EDA)
+
+## Seleccionar variables relevantes 
+```{r}
+permiso_relevante <-  permiso %>%
+  select(Grupo_Vehiculo, Ano_Vehiculo,Tipo_de_Pago,Fecha_Pago,Ano_Pago,Mes_Pago_texto,Mes_Pago,Valor_Neto,Valor_IPC,Valor_Multa,Valor_Pagado,Forma_Pago,Tipo_Vehiculo,Marca)
+```
+
+
+
+## Visualización de la Distribución de la Variable “Grupo Vehiculo”
+
+Observar la distribución de la variable “Grupo Vehiculo” en el conjunto de datos original para entender mejor la composición del mismo.
+
+```{r}
+# Visualización de la distribución de la variable "Grupo Vehiculo"
+var_x <- "Grupo_Vehiculo"
+var_tipo_grafico <- "barra"
+
+grafico(
+  data = permiso_relevante, 
+  var  = var_x, 
+  tipo_grafico = var_tipo_grafico
+)
+```
+
+## Muestreo 
+
+Para asegurar una representación adecuada de cada grupo, realizaremos un muestreo estratificado de los datos. Este proceso garantiza que cada estrato (grupo) esté proporcionalmente representado en la muestra.
+
+```{r}
+
+# Calcular la muestra aleatoria según Desviación Estándar
+cant <- nrow(permiso_relevante)
+sd <- sd(permiso_relevante$Valor_Pagado)
+n <- tam.muestra(alfa = 0.05, epsilon = 1200, s = sd, N = cant)
+set.seed(2)
+cant <- sample(nrow(permiso_relevante), n)
+permiso_muestra <- permiso_relevante[cant, ]
+
+cat("La cantidad de registros de muestra es:", nrow(permiso_muestra))
+```
+
+
+
+
+## Exploración de Variables
+
+## Detalle por Variables Cuantitativas.
+
+Se realiza un gráfico para cada variable cuantitativa con el fin de explicar su distribución en el conjunto de datos analizado.
+
+### Variable: Grupo Vehiculo
+
+```{r}
+
+var_x <- "Ano_Pago"
+var_tipo_grafico <- "histograma"
+
+grafico(
+  data = permiso_muestra, 
+  var  = var_x, 
+  tipo_grafico = var_tipo_grafico
+)
+```
+
+
+
+
+
+
+### Variable: Tipo de Pago
+
+```{r}
+var_x <- "Tipo_de_Pago"
+var_tipo_grafico <- "barra"
+
+grafico(
+  data = permiso_muestra, 
+  var  = var_x, 
+  tipo_grafico = var_tipo_grafico
+)
+```
+
+
+
+### Variable: Año
+
+```{r}
+var_x <- "Ano_Vehiculo"
+var_tipo_grafico <- "histograma"
+
+grafico(
+  data = permiso_muestra, 
+  var  = var_x, 
+  tipo_grafico = var_tipo_grafico
+)
+```
+
+
+
+
+### Variable: Valor Pagado
+
+```{r}
+vehiculo_liviano_dataset <- permiso_muestra %>% filter(`Grupo_Vehiculo` == "Vehiculo Liviano")
+transporte_publico_dataset <- permiso_muestra %>% filter(`Grupo_Vehiculo` == "Transporte Publico")
+carga_dataset <- permiso_muestra %>% filter(`Grupo_Vehiculo` == "Carga")
+
+
+
+var_x <- "Valor_Pagado"
+var_tipo_grafico <- "boxplot"
+
+grafico(
+  data = vehiculo_liviano_dataset, 
+  var  = var_x, 
+  tipo_grafico = var_tipo_grafico
+)
+
+
+grafico(
+  data = transporte_publico_dataset, 
+  var  = var_x, 
+  tipo_grafico = var_tipo_grafico
+)
+
+grafico(
+  data = carga_dataset, 
+  var  = var_x, 
+  tipo_grafico = var_tipo_grafico
+)
+
+```
+
+
+## Tratamiento de Outliers
+
+```{r}
+
+# Tratamiento de outliers
+# Calcular el IQR y los límites para identificar valores atípicos
+IQR_Valor_Pagado <- IQR(permiso_muestra$Valor_Pagado, na.rm = TRUE)
+Q1 <- quantile(permiso_muestra$Valor_Pagado, 0.25, na.rm = TRUE)
+Q3 <- quantile(permiso_muestra$Valor_Pagado, 0.75, na.rm = TRUE)
+lower_bound <- Q1 - 1.5 * IQR_Valor_Pagado
+upper_bound <- Q3 + 1.5 * IQR_Valor_Pagado
+
+# Filtrar los valores atípicos
+outliers <- permiso_muestra %>%
+  filter(Valor_Pagado < lower_bound | Valor_Pagado > upper_bound)
+
+# Eliminar los valores atípicos
+permiso_sin_outliers <- permiso_muestra %>%
+  filter(Valor_Pagado >= lower_bound & Valor_Pagado <= upper_bound)
+
+cat("Número de registros originales:", nrow(permiso_muestra), "\n")
+cat("Número de registros sin outliers:", nrow(permiso_sin_outliers), "\n")
+
+permiso_muestra<- permiso_sin_outliers
+```
+
+
+### Variable: Valor Pagado sin outliers 
+
+```{r}
+vehiculo_liviano_dataset <- permiso_muestra %>% filter(`Grupo_Vehiculo` == "Vehiculo Liviano")
+transporte_publico_dataset <- permiso_muestra %>% filter(`Grupo_Vehiculo` == "Transporte Publico")
+carga_dataset <- permiso_muestra %>% filter(`Grupo_Vehiculo` == "Carga")
+
+
+
+var_x <- "Valor_Pagado"
+var_tipo_grafico <- "boxplot"
+
+grafico(
+  data = vehiculo_liviano_dataset, 
+  var  = var_x, 
+  tipo_grafico = var_tipo_grafico
+)
+
+
+grafico(
+  data = transporte_publico_dataset, 
+  var  = var_x, 
+  tipo_grafico = var_tipo_grafico
+)
+
+grafico(
+  data = carga_dataset, 
+  var  = var_x, 
+  tipo_grafico = var_tipo_grafico
+)
+
+```
+
+## Relacion entre Gastos e Ingresos
+
+```{r}
+var_x <- "Ano_Vehiculo"
+var_y <- "Valor_Pagado"
+
+grafico_dispersion(
+  data = permiso_muestra, 
+  var_x = var_x, 
+  var_y = var_y
+)
+```
+
+
+
+
+```{r}
+
+
+# Medidas de tendencia central y dispersión
+tendencia_central <- permiso_muestra %>%
+  summarise(
+    media_valor_pagado = mean(`Valor_Pagado`, na.rm = TRUE),
+    mediana_valor_pagado = median(`Valor_Pagado`, na.rm = TRUE),
+    desviacion_estandar_valor_pagado = sd(`Valor_Pagado`, na.rm = TRUE),
+    varianza_valor_pagado = var(`Valor_Pagado`, na.rm = TRUE)
+  )
+
+print(tendencia_central)
+
+# Boxplot de valor pagado por tipo de vehículo
+ggplot(permiso_muestra, aes(x = `Tipo_Vehiculo`, y = `Valor_Pagado`)) +
+  geom_boxplot() +
+  labs(title = "Distribución del Valor Pagado por Tipo de Vehículo", x = "Tipo de Vehículo", y = "Valor Pagado")
+
+
+
+
+```
+
+
+
+
+
+## Valores Nulos y reemplazar por la Mediana
+
+En caso que se encuentren valores, se reemplazan por el valor de la mediana de cada variable.
+
+```{r}
+#Imputar valores nulos por la mediana
+permiso_muestra <- permiso_muestra %>%
+  mutate(across(everything(), reemplazar_por_mediana))
+```
+
+
+
+## Descripcion de Variables normalizadas
+
+
+```{r}
+# Configurar el entorno de summarytools para HTML
+st_options(style = "rmarkdown", plain.ascii = FALSE)
+
+# Obtener un resumen de los datos utilizando summarytools y renderizar en HTML
+dfSummary(permiso_muestra) %>%
+  print(method = 'render')
+```
+# 4. Modelado de Datos
+
+Aplicación de técnicas de modelado de datos y algoritmos de aprendizaje automático para estimar la cantidad de permisos que se pagarán en los próximos 6 meses por grupo y tipo de vehículo.
+
+## Técnicas y Algoritmos
+
+### 1. Selección del Modelo
+
+Para este análisis, seleccionaremos tres modelos:
+
+	1.	Regresión Lineal Múltiple: Este modelo es fácil de interpretar y puede proporcionar una línea base para la comparación con otros modelos más complejos.
+	2.	Árboles de Decisión: Los árboles de decisión son útiles para capturar interacciones no lineales entre las variables y proporcionan interpretaciones claras de las decisiones del modelo.
+	3.	XGBoost: Un algoritmo de boosting que combina múltiples árboles de decisión para mejorar la precisión y el rendimiento del modelo.
+
+
+### 2. Entrenamiento y Evaluación
+
+### Seleccionar Datos
+Se seleccionan los datos hasta el 2018
+
+```{r}
+
+set.seed(123)
+filtered_permiso_muestra <- permiso_muestra %>%
+  filter(Ano_Pago <= 2018)
+
+# Definir el tamaño de la muestra por cada categoría de Grupo_Vehiculo
+tamano_muestra <- min(filtered_permiso_muestra %>% count(Grupo_Vehiculo) %>% pull(n))
+
+# Muestreo estratificado para asegurar la misma cantidad de datos por categoría
+
+filtered_permiso_muestra <- filtered_permiso_muestra %>%
+  group_by(Grupo_Vehiculo) %>%
+  sample_n(tamano_muestra) %>%
+  ungroup()
+
+# Visualización de la distribución de la variable "Grupo Vehiculo"
+
+var_x <- "Grupo_Vehiculo"
+var_tipo_grafico <- "barra"
+
+grafico(
+  data = filtered_permiso_muestra, 
+  var  = var_x, 
+  tipo_grafico = var_tipo_grafico
+)
+
+
+```
+
+
+### Creacion de variable de cantidad de permisos por grupo de vehículo
+
+```{r}
+
+cantidad_permisos <- filtered_permiso_muestra %>%
+  group_by(Grupo_Vehiculo, Ano_Pago, Mes_Pago) %>%
+  summarise(Cantidad_Permisos = n(),
+            .groups = 'drop')
+```
+
+
+Dividiremos los datos en conjuntos de entrenamiento y prueba, entrenaremos los modelos, y evaluaremos su desempeño utilizando métricas adecuadas.
+
+
+```{r}
+# Dividir los datos en conjuntos de entrenamiento (80%) y prueba (20%)
+set.seed(1234)
+trainIndex <- createDataPartition(cantidad_permisos$Cantidad_Permisos, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+permisoTrain <- cantidad_permisos[trainIndex,]
+permisoTest  <- cantidad_permisos[-trainIndex,]
+
+# Ajustar los niveles de los factores en el conjunto de prueba para que coincidan con los del conjunto de entrenamiento
+permisoTest <- permisoTest %>%
+  mutate(Grupo_Vehiculo = factor(Grupo_Vehiculo, levels = levels(permisoTrain$Grupo_Vehiculo)))
+
+```
+
+### Regresión Lineal Múltiple para cantidad de permisos
+
+```{r}
+
+#Modelo
+modelo_rlm_cantidad <- lm(Cantidad_Permisos ~ ., data = permisoTrain)
+summary(modelo_rlm_cantidad)
+
+# Predicciones y evaluación del modelo para cantidad de permisos
+pred_rlm_cantidad <- predict(modelo_rlm_cantidad, permisoTest)
+rmse_rlm_cantidad <- RMSE(pred_rlm_cantidad, permisoTest$Cantidad_Permisos)
+rsq_rlm_cantidad <- R2(pred_rlm_cantidad, permisoTest$Cantidad_Permisos)
+
+```
+
+### Árbol de Decisión para cantidad de permisos
+
+```{r}
+# Modelo 
+modelo_arbol_cantidad <- train(Cantidad_Permisos ~ ., data = permisoTrain, method = "rpart", 
+                               trControl = trainControl(method = "cv", number = 10))
+summary(modelo_arbol_cantidad)
+
+# Predicciones y evaluación del modelo para cantidad de permisos
+pred_arbol_cantidad <- predict(modelo_arbol_cantidad, permisoTest)
+rmse_arbol_cantidad <- RMSE(pred_arbol_cantidad, permisoTest$Cantidad_Permisos)
+rsq_arbol_cantidad <- R2(pred_arbol_cantidad, permisoTest$Cantidad_Permisos)
+
+```
+
+### XGBoost para cantidad de permisos
+
+```{r}
+# Convertir variables categóricas a indicadores binarios (dummies)
+permisoTrain_matrix <- model.matrix(~ . - 1, data = permisoTrain %>% select(-Cantidad_Permisos))
+permisoTest_matrix <- model.matrix(~ . - 1, data = permisoTest %>% select(-Cantidad_Permisos))
+
+# Crear DMatrix para XGBoost
+dtrain_cantidad <- xgb.DMatrix(data = permisoTrain_matrix, label = permisoTrain$Cantidad_Permisos)
+dtest_cantidad <- xgb.DMatrix(data = permisoTest_matrix, label = permisoTest$Cantidad_Permisos)
+
+params <- list(booster = "gbtree", objective = "reg:squarederror", eta = 0.3, max_depth = 6)
+modelo_xgb_cantidad <- xgb.train(params, dtrain_cantidad, nrounds = 100)
+
+# Predicciones y evaluación del modelo para cantidad de permisos
+pred_xgb_cantidad <- predict(modelo_xgb_cantidad, dtest_cantidad)
+rmse_xgb_cantidad <- RMSE(pred_xgb_cantidad, permisoTest$Cantidad_Permisos)
+rsq_xgb_cantidad <- R2(pred_xgb_cantidad, permisoTest$Cantidad_Permisos)
+
+```
+
+### Resultados
+
+```{r}
+# resultados
+resultados_cantidad <- tibble(
+  Modelo = c("Regresión Lineal Múltiple", "Árbol de Decisión", "XGBoost"),
+  RMSE = c(rmse_rlm_cantidad, rmse_arbol_cantidad, rmse_xgb_cantidad),
+  R2 = c(rsq_rlm_cantidad, rsq_arbol_cantidad, rsq_xgb_cantidad)
+)
+
+print(resultados_cantidad)
+```
+
+
+
+### Prediccion
+
+```{r}
+# Predicciones para los próximos 6 meses
+future_data <- tibble(
+  Grupo_Vehiculo = factor(rep("Vehiculo Liviano", 6), levels = levels(cantidad_permisos$Grupo_Vehiculo)),
+  Ano_Pago = rep(2024, 6),
+  Mes_Pago = c(1, 2, 3, 4, 5, 6)
+)
+
+
+# Convertir el dataset future_data a matriz para XGBoost
+future_data_matrix <- model.matrix(~ . - 1, data = future_data)
+
+# Predicciones con Regresión Lineal Múltiple
+pred_future_rlm_cantidad <- predict(modelo_rlm_cantidad, future_data)
+
+# Predicciones con Árbol de Decisión
+pred_future_arbol_cantidad <- predict(modelo_arbol_cantidad, future_data)
+
+# Predicciones con XGBoost
+d_future_cantidad <- xgb.DMatrix(data = future_data_matrix)
+pred_future_xgb_cantidad <- predict(modelo_xgb_cantidad, d_future_cantidad)
+
+
+
+# Crear un DataFrame con todas las predicciones
+predicciones_futuras <- future_data %>%
+  mutate(
+    RLM_Cantidad_Permisos = pred_future_rlm_cantidad,
+    Arbol_Cantidad_Permisos = pred_future_arbol_cantidad,
+    XGB_Cantidad_Permisos = pred_future_xgb_cantidad
+  )
+
+print(predicciones_futuras)
+```
+
+
+## 5. Interpretación de Resultados
+
+Discusión de los Resultados del Análisis:
+
+	•	Interpretación de los coeficientes del modelo de regresión.
+	•	Identificación de las variables más influyentes.
+	•	Recomendaciones basadas en los hallazgos del análisis.
+
