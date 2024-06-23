@@ -125,6 +125,7 @@ grafico_anillo <- function(data, var_cual_x) {
 
   
 
+  
   grafico_barras <- function(data, var_cual_x) {
     num_categorias <- n_distinct(data[[var_cual_x]])
     if (num_categorias > 10) {
@@ -135,12 +136,13 @@ grafico_anillo <- function(data, var_cual_x) {
     
     p <- ggplot(data, aes(x = !!sym(var_cual_x))) +
       geom_bar(fill = colores) +
-      geom_text(stat = 'count', aes(label = after_stat(count)), angle = 90, vjust = 0.4) +
+      geom_text(stat = 'count', aes(label = scales::number(after_stat(count), accuracy = 1, big.mark = ".", decimal.mark = ",")), angle = 90, vjust = 1) +
       labs(title = paste("Frecuencia de", var_cual_x), x = var_cual_x, y = "Frecuencia", 
            caption = paste("Este gráfico de barras muestra la frecuencia de", var_cual_x, ".")) +
       theme_minimal() +
-      theme(axis.text.x = element_text(angle = 90, hjust = 0.5))
-    
+      theme(axis.text.x = element_text(angle = 90, hjust =1)) +
+      scale_y_continuous(labels = scales::number_format(big.mark = ".", decimal.mark = ",")) 
+      scale_x_discrete(drop = FALSE)
     return(p)
   }
   
