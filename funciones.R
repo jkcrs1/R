@@ -234,7 +234,7 @@ grafico_histograma <- function(data, var_cuant_x) {
     p <- ggplot(data, aes(x = factor(1), y = !!x)) +
       geom_boxplot(alpha = 0.5, outlier.shape = NA, fill = colores[3]) + 
       geom_jitter(shape = 10, position = position_jitter(0.15), size = 1, alpha = 0.7, color = colores[6]) +
-      labs(title = titulo, x = NULL, y = NULL)+ 
+      labs(title = titulo)+ 
       #caption = paste("Este boxplot con puntos muestra la distribución de", var_cuant_x, ".")) +
       theme_minimal() +
       theme(plot.title = element_text(size = 10))+
