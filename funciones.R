@@ -342,3 +342,27 @@ grafico_boxplot_dos_var <- function(data, var_x, var_y) {
   
   return(p)
 }
+
+
+grafico_lineas <- function(data, var_x, var_y, agrupado) {
+  # Convertir la variable de color en factor si no lo es
+  if (!is.factor(data[[agrupado]]) && !is.character(data[[agrupado]])) {
+    stop("La variable de agrupación debe ser un factor o un carácter.")
+  }
+  
+  data[[agrupado]] <- as.factor(data[[agrupado]])
+  
+  # Crear el gráfico de líneas
+  p <- ggplot(data, aes(x = !!sym(var_x), y = !!sym(var_y), color = !!sym(agrupado))) +
+    geom_line(size = 1) +
+    labs(title = paste("Distribución por", var_x, "y", var_y),
+         x = var_x,
+         y = var_y,
+         color = agrupado) +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 12),
+          axis.text.x = element_text(angle = 90, hjust = 1)) +
+    scale_y_continuous(labels = scales::comma_format(big.mark = ".", decimal.mark = ","))
+  
+  return(p)
+}
