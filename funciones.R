@@ -131,10 +131,11 @@ grafico_cuantitativo <- function(data, var_cuant_x, tipo_grafico) {
   
   # Añadir diferentes tipos de gráficos
   p <- switch(tipo_grafico,
-              "histograma" = ggplot(data, aes(x = !!x, fill = ..count..)) +
-                geom_histogram(binwidth = 10) +
-                geom_text(stat='count', aes(label=..count..), angle = 90, hjust = -0.1, vjust = 0.5) +
-                scale_fill_gradientn(colors = colores) +
+            "histograma" = ggplot(data, aes(x = !!x)) +
+                geom_bar(fill = "blue", color = "black") +
+                labs(title = paste("Histograma de", var_cuant_x), x = var_cuant_x, y = "Frecuencia") +
+                theme_minimal() +
+                theme(axis.text.x = element_text(angle = 90, hjust = 1)),
                 labs(title = paste("Distribución de", var_cuant_x), x = var_cuant_x, y = "Frecuencia", caption = paste("Este histograma muestra la distribución de", var_cuant_x, ".")),
               "violin" = ggplot(data, aes(x = factor(1), y = !!x)) +
                 geom_violin(aes(fill = factor(1))) +
