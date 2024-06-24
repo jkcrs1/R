@@ -224,7 +224,7 @@ mostrar_graficos(grafico1, grafico2, ncol = 2)
 ```{r}
 
 # Crear gráficos individuales
-grafico1 <- grafico_torta(permiso_muestra,"grupo_vehiculo")
+grafico1 <- grafico_anillo(permiso_muestra,"grupo_vehiculo")
 grafico2 <- grafico_barras(permiso_muestra,"tipo_vehiculo")
 
 # Mostrar los gráficos juntos
