@@ -2,12 +2,10 @@
 title: "Evaluacion 1"
 author: "Jorge Cáceres Barrales"
 date: "2024-06-18"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
 
 # Objetivo de Investigación
 
@@ -27,7 +25,7 @@ El objetivo principal de este análisis es investigar y comprender los patrones 
 1.  Identificar las características más comunes de los vehículos que obtienen permisos de circulación.
 2.  Analizar la distribución temporal de la obtención de permisos.
 3.  Explorar posibles relaciones entre las características de los vehículos y el costo del permiso.
-4.  Proporcionar insights que puedan ayudar a la municipalidad a optimizar sus procesos de emisión de permisos y a los ciudadanos a comprender mejor los factores que influyen en los costos de los permisos.
+4.  Realizar un modelo que permita estimar la cantidad de pagos que se recibiran en un periodo de tiempo.
 ```
 
 # Procesamiento de Datos
@@ -51,6 +49,9 @@ library(kableExtra)
 library(summarytools)
 library(httr)
 library(zoo)
+library(ggcorrplot)
+library(lubridate)
+library(gridExtra)
 
 ```
 
@@ -73,9 +74,6 @@ permiso <- read.csv(url3, sep = ";", fileEncoding = "ISO-8859-1")
 Utilizando el paquete summarytools, se genera un resumen detallado de todas las variables del dataframe. Este informe incluye estadísticas descriptivas, frecuencias, gráficos de barras para variables categóricas y otras visualizaciones útiles para el análisis de datos.
 
 ```{r}
-# Configurar el entorno de summarytools para HTML
-st_options(style = "rmarkdown", plain.ascii = FALSE)
-
 # Obtener un resumen de los datos utilizando summarytools y renderizar en HTML
 dfSummary(permiso) %>%
   print(method = 'render')
@@ -86,13 +84,13 @@ dfSummary(permiso) %>%
 Se procede a normalizar y limpiar el conjunto de datos, asegurando que las variables estén en el formato correcto y que los valores nulos se manejen adecuadamente.
 
 ```{r}
-# Convertir el dataframe
+# Convertir permiso a data.frame (por si no lo es)
 permiso <- data.frame(permiso)
 
-# Cambio de nombres de columnas
-colnames(permiso) <- colnames(permiso) %>% str_replace_all("\\.", "_")
+# Cambio de nombres de columnas: reemplazar puntos por guiones bajos y convertir a minúsculas
+colnames(permiso) <- colnames(permiso) %>% str_replace_all("\\.", "_") %>% tolower()
 
-# Normalización de datos
+# Mapas de recodificación
 tipo_vehiculo_mapeo <- c(
   "AMBULANCIA" = "AMBULANCIA", "AUTOMOVIL" = "AUTOMOVIL", "BUS" = "BUS",
   "Cabriolet" = "AUTOMOVIL", "CAMION" = "CAMION", "CAMIONETA" = "CAMIONETA",
@@ -119,30 +117,44 @@ transmision_mapeo <- c(
   "CVT" = "Automatica", "DCT" = "Automatica"
 )
 
+# Mostrar la cantidad de registros iniciales
+cat("La cantidad de registros:", nrow(permiso), "\n")
 
 # Aplicar todas las transformaciones y normalizaciones
 permiso <- permiso %>%
   mutate(
-    Tipo_Vehiculo = recode(Tipo_Vehiculo, !!!tipo_vehiculo_mapeo),
-    Tipo_Combustible = recode(Tipo_Combustible, !!!tipo_combustible_mapeo),
-    Transmision = recode(Transmision, !!!transmision_mapeo),
+    # Recodificar las variables categóricas
+    tipo_vehiculo = recode(tipo_vehiculo, !!!tipo_vehiculo_mapeo),
+    tipo_combustible = recode(tipo_combustible, !!!tipo_combustible_mapeo),
+    transmision = recode(transmision, !!!transmision_mapeo),
+    
+    # Reemplazar nulos en todas las variables
     across(everything(), reemplazar_nulos),
-    across(c(Municipalidad, Grupo_Vehiculo, Placa, Digito, Codigo_SII,
-             Forma_Pago, Tipo_Vehiculo, Marca, Modelo, Color,
-             Transmision, Tipo_Combustible, Equipamiento), str_to_title)
+    
+    # Convertir a título en variables específicas
+    across(c(municipalidad, grupo_vehiculo, placa, digito, codigo_sii,
+             forma_pago, tipo_vehiculo, marca, modelo, color,
+             transmision, tipo_combustible, equipamiento), str_to_title),
+    
+    # Convertir tipos de datos
+    ano_vehiculo = as.integer(ano_vehiculo),
+    valor_multa = suppressWarnings(as.numeric(as.character(valor_multa))),
+    valor_neto = suppressWarnings(as.numeric(as.character(valor_neto))),
+    valor_pagado = suppressWarnings(as.numeric(as.character(valor_pagado))),
+    fecha_pago = as.Date(fecha_pago, format = "%d-%m-%y"),
+    ano_pago = as.integer(year(fecha_pago)),
+    mes = month(fecha_pago, label = TRUE),
+    mes_pago = as.integer(month(fecha_pago)),
+    
+    # Crear la variable Ano_Mes_Pago
+    ano_mes_pago = paste(sprintf("%02d", mes_pago), substr(ano_pago, 3, 4), sep = "-")
   ) %>%
-  mutate(
-    Ano_Vehiculo = as.integer(Ano_Vehiculo),
-    Valor_Multa = suppressWarnings(as.numeric(as.character(Valor_Multa))),
-    Valor_Neto = suppressWarnings(as.numeric(as.character(Valor_Neto))),
-    Valor_Pagado = suppressWarnings(as.numeric(as.character(Valor_Pagado))),
-    Fecha_Pago = as.Date(Fecha_Pago, format = "%d-%m-%y"),
-    Ano_Pago = year(Fecha_Pago),
-    Mes_Pago_texto = month(Fecha_Pago, label = TRUE),
-    Mes_Pago = month(Fecha_Pago)
-  ) %>%
-  filter(!is.na(Valor_Pagado) & !is.na(Fecha_Pago) & Valor_Pagado > 0) %>%
+  # Filtrar y eliminar duplicados
+  filter(!is.na(valor_pagado) & !is.na(fecha_pago) & valor_pagado > 0) %>%
   distinct()
+
+# Mostrar la cantidad de registros válidos
+cat("La cantidad de registros válidos:", nrow(permiso), "\n")
 
 ```
 
@@ -154,8 +166,14 @@ Para asegurar un análisis e interpretación adecuados de los datos, las variabl
 
 # Transformar las variables a factor con los niveles definidos
 permiso <- permiso %>%
-  mutate(across(where(is.character), as.factor))  
- 
+  mutate(across(where(is.character), as.factor),
+         fecha = as.Date(paste(ano_pago, mes_pago, "01", sep = "-"), format = "%Y-%m-%d"),
+         ano_mes_pago = paste(sprintf("%02d", mes_pago), substr(ano_pago, 3, 4), sep = "-")) %>%
+  arrange(fecha) %>%
+  mutate(ano_mes_pago = factor(ano_mes_pago, levels = unique(ano_mes_pago))) %>%
+  select(-fecha)
+
+
 ```
 
 # Análisis Exploratorio de Datos (EDA)
@@ -163,24 +181,8 @@ permiso <- permiso %>%
 ## Seleccionar variables relevantes
 
 ```{r}
-permiso_relevante <-  permiso %>%
-  select(Grupo_Vehiculo, Ano_Vehiculo,Tipo_de_Pago,Fecha_Pago,Ano_Pago,Mes_Pago_texto,Mes_Pago,Valor_Neto,Valor_IPC,Valor_Multa,Valor_Pagado,Forma_Pago,Tipo_Vehiculo,Marca)
-```
-
-## Visualización de la Distribución de la Variable “Grupo Vehiculo”
-
-Observar la distribución de la variable “Grupo Vehiculo” en el conjunto de datos original para entender mejor la composición del mismo.
-
-```{r}
-# Visualización de la distribución de la variable "Grupo Vehiculo"
-var_x <- "Grupo_Vehiculo"
-var_tipo_grafico <- "barra"
-
-grafico(
-  data = permiso_relevante, 
-  var  = var_x, 
-  tipo_grafico = var_tipo_grafico
-)
+permiso_relevante <- permiso %>%
+  select(grupo_vehiculo, ano_vehiculo, tipo_de_pago, fecha_pago, ano_pago, mes, mes_pago, ano_mes_pago, valor_neto, valor_ipc, valor_multa, valor_pagado, forma_pago, tipo_vehiculo, marca)
 ```
 
 ## Muestreo
@@ -191,7 +193,7 @@ Para asegurar una representación adecuada de cada grupo, realizaremos un muestr
 
 # Calcular la muestra aleatoria según Desviación Estándar
 cant <- nrow(permiso_relevante)
-sd <- sd(permiso_relevante$Valor_Pagado)
+sd <- sd(permiso_relevante$valor_pagado)
 n <- tam.muestra(alfa = 0.05, epsilon = 1200, s = sd, N = cant)
 set.seed(2)
 cant <- sample(nrow(permiso_relevante), n)
@@ -200,54 +202,87 @@ permiso_muestra <- permiso_relevante[cant, ]
 cat("La cantidad de registros de muestra es:", nrow(permiso_muestra))
 ```
 
-
-
-### Variable: Tipo de Pago
+### Distribucion de Pagos por Año y Meses
 
 ```{r}
-var_x <- "Tipo_de_Pago"
-var_tipo_grafico <- "barra"
 
-grafico(
-  data = permiso_muestra, 
-  var  = var_x, 
-  tipo_grafico = var_tipo_grafico
-)
+# Preparar los datos para el gráfico de área
+area_data <- permiso_muestra %>%
+  group_by(ano_pago, mes) %>%
+  summarise(count = n(), .groups = 'drop')
+
+grafico1 <- grafico_histograma(permiso_muestra, "ano_pago")
+grafico2 <- grafico_area(area_data, "mes", "count", "ano_pago")
+
+mostrar_graficos(grafico1, grafico2, ncol = 2)
+
 ```
 
 
-### Variable: Valor Pagado
+### Variable: Grupo Vehiculo.
 
 ```{r}
-vehiculo_liviano_dataset <- permiso_muestra %>% filter(`Grupo_Vehiculo` == "Vehiculo Liviano")
-transporte_publico_dataset <- permiso_muestra %>% filter(`Grupo_Vehiculo` == "Transporte Publico")
-carga_dataset <- permiso_muestra %>% filter(`Grupo_Vehiculo` == "Carga")
 
+# Crear gráficos individuales
+grafico1 <- grafico_torta(permiso_muestra,"grupo_vehiculo")
+grafico2 <- grafico_barras(permiso_muestra,"tipo_vehiculo")
 
+# Mostrar los gráficos juntos
+mostrar_graficos(grafico1, grafico2, ncol = 2)
 
-var_x <- "Valor_Pagado"
-var_tipo_grafico <- "boxplot"
-
-grafico(
-  data = vehiculo_liviano_dataset, 
-  var  = var_x, 
-  tipo_grafico = var_tipo_grafico
-)
-
-
-grafico(
-  data = transporte_publico_dataset, 
-  var  = var_x, 
-  tipo_grafico = var_tipo_grafico
-)
-
-grafico(
-  data = carga_dataset, 
-  var  = var_x, 
-  tipo_grafico = var_tipo_grafico
-)
 
 ```
+
+
+
+
+### Valor Pago por Categoria 
+
+```{r}
+vehiculo_liviano_dataset <- permiso_muestra %>% filter(`grupo_vehiculo` == "Vehiculo Liviano")
+transporte_publico_dataset <- permiso_muestra %>% filter(`grupo_vehiculo` == "Transporte Publico")
+carga_dataset <- permiso_muestra %>% filter(`grupo_vehiculo` == "Carga")
+
+
+# Crear gráficos individuales
+grafico1 <- grafico_boxplot(vehiculo_liviano_dataset, "valor_pagado","Vehiculo Liviano")
+grafico2 <- grafico_boxplot(transporte_publico_dataset, "valor_pagado","Transporte Publico")
+grafico3 <- grafico_boxplot(carga_dataset, "valor_pagado","Carga")
+
+
+
+# Mostrar los gráficos juntos
+mostrar_graficos(grafico1, grafico2,grafico3, ncol = 3)
+
+
+
+```
+
+### BoxPlot por tipo de Vehiculo
+
+```{r}
+
+grafico1 <- grafico_barras(vehiculo_liviano_dataset,"tipo_vehiculo")
+grafico2 <- grafico_boxplot_dos_var(vehiculo_liviano_dataset, "tipo_vehiculo","valor_pagado")
+
+
+
+# Mostrar los gráficos juntos
+mostrar_graficos(grafico1, grafico2, ncol = 2)
+
+
+
+```
+## Selecionar Dataset de Automoviles y Camionetas
+
+```{r}
+vehiculo_dataset <- vehiculo_liviano_dataset %>% 
+  filter(tipo_vehiculo == "Automovil" | tipo_vehiculo == "Camioneta")
+
+grafico_anillo(vehiculo_dataset,"tipo_vehiculo")
+
+```
+
 
 ## Tratamiento de Outliers
 
@@ -255,130 +290,78 @@ grafico(
 
 # Tratamiento de outliers
 # Calcular el IQR y los límites para identificar valores atípicos
-IQR_Valor_Pagado <- IQR(permiso_muestra$Valor_Pagado, na.rm = TRUE)
-Q1 <- quantile(permiso_muestra$Valor_Pagado, 0.25, na.rm = TRUE)
-Q3 <- quantile(permiso_muestra$Valor_Pagado, 0.75, na.rm = TRUE)
+IQR_Valor_Pagado <- IQR(vehiculo_dataset$valor_pagado, na.rm = TRUE)
+Q1 <- quantile(vehiculo_dataset$valor_pagado, 0.25, na.rm = TRUE)
+Q3 <- quantile(vehiculo_dataset$valor_pagado, 0.75, na.rm = TRUE)
 lower_bound <- Q1 - 1.5 * IQR_Valor_Pagado
 upper_bound <- Q3 + 1.5 * IQR_Valor_Pagado
 
 # Filtrar los valores atípicos
-outliers <- permiso_muestra %>%
-  filter(Valor_Pagado < lower_bound | Valor_Pagado > upper_bound)
+outliers <- vehiculo_dataset %>%
+  filter(valor_pagado < lower_bound | valor_pagado > upper_bound)
 
 # Eliminar los valores atípicos
-permiso_sin_outliers <- permiso_muestra %>%
-  filter(Valor_Pagado >= lower_bound & Valor_Pagado <= upper_bound)
+vehiculo_sin_outliers <- vehiculo_dataset %>%
+  filter(valor_pagado >= lower_bound & valor_pagado <= upper_bound)
 
-cat("Número de registros originales:", nrow(permiso_muestra), "\n")
-cat("Número de registros sin outliers:", nrow(permiso_sin_outliers), "\n")
+cat("Número de registros originales:", nrow(vehiculo_dataset), "\n")
+cat("Número de registros sin outliers:", nrow(vehiculo_sin_outliers), "\n")
 
-permiso_muestra<- permiso_sin_outliers
+vehiculo_dataset<- vehiculo_sin_outliers
 ```
 
-### Variable: Valor Pagado sin outliers
+## Boxplot por tipo de vehiculo
 
 ```{r}
-vehiculo_liviano_dataset <- permiso_muestra %>% filter(`Grupo_Vehiculo` == "Vehiculo Liviano")
-transporte_publico_dataset <- permiso_muestra %>% filter(`Grupo_Vehiculo` == "Transporte Publico")
-carga_dataset <- permiso_muestra %>% filter(`Grupo_Vehiculo` == "Carga")
+automovil_dataset <- vehiculo_dataset %>% filter(`tipo_vehiculo` == "Automovil")
+camioneta_dataset <- vehiculo_dataset %>% filter(`tipo_vehiculo` == "Camioneta")
+
+# Crear gráficos individuales
+grafico1 <- grafico_boxplot(automovil_dataset, "valor_pagado","Automovil")
+grafico2 <- grafico_boxplot(camioneta_dataset, "valor_pagado","Camioneta")
 
 
 
-var_x <- "Valor_Pagado"
-var_tipo_grafico <- "boxplot"
-
-grafico(
-  data = vehiculo_liviano_dataset, 
-  var  = var_x, 
-  tipo_grafico = var_tipo_grafico
-)
-
-
-grafico(
-  data = transporte_publico_dataset, 
-  var  = var_x, 
-  tipo_grafico = var_tipo_grafico
-)
-
-grafico(
-  data = carga_dataset, 
-  var  = var_x, 
-  tipo_grafico = var_tipo_grafico
-)
-
+# Mostrar los gráficos juntos
+mostrar_graficos(grafico1, grafico2, ncol = 2)
 ```
 
-## Relacion entre Gastos e Ingresos
+
+## Matriz de correlacion
 
 ```{r}
-var_x <- "Ano_Vehiculo"
-var_y <- "Valor_Pagado"
+# Crear gráficos individuales
+grafico1 <- grafico_matriz_correlacion( vehiculo_dataset)
+grafico2 <- grafico_dispersion(vehiculo_dataset, "ano_vehiculo","valor_pagado")
 
-grafico_dispersion(
-  data = permiso_muestra, 
-  var_x = var_x, 
-  var_y = var_y
-)
-```
-
-```{r}
-
-
-# Medidas de tendencia central y dispersión
-tendencia_central <- permiso_muestra %>%
-  summarise(
-    media_valor_pagado = mean(`Valor_Pagado`, na.rm = TRUE),
-    mediana_valor_pagado = median(`Valor_Pagado`, na.rm = TRUE),
-    desviacion_estandar_valor_pagado = sd(`Valor_Pagado`, na.rm = TRUE),
-    varianza_valor_pagado = var(`Valor_Pagado`, na.rm = TRUE)
-  )
-
-print(tendencia_central)
-
-# Boxplot de valor pagado por tipo de vehículo
-ggplot(permiso_muestra, aes(x = `Tipo_Vehiculo`, y = `Valor_Pagado`)) +
-  geom_boxplot() +
-  labs(title = "Distribución del Valor Pagado por Tipo de Vehículo", x = "Tipo de Vehículo", y = "Valor Pagado")
-
-
+# Mostrar los gráficos juntos
+mostrar_graficos(grafico1, grafico2, ncol = 2)
 
 
 ```
 
-
-
-## Distribucion de Pagos en Grupos de Vehiculos por Meses Relativos 
+## Distribucion de Pagos en Grupos de Vehiculos por Meses Relativos
 
 ```{r}
 # Filtrar y transformar los datos
 
-# Calcular el mes relativo
-permiso_muestra <- permiso_muestra %>%
-  arrange(Fecha_Pago) %>%
-  group_by(Grupo_Vehiculo) %>%
+vehiculo_dataset <- vehiculo_dataset %>%
+  arrange(fecha_pago) %>%
+  group_by(tipo_vehiculo) %>%
   mutate(
-    Fecha_Relativa = as.yearmon(Fecha_Pago),
-    Mes_Relativo = as.integer((min(Fecha_Relativa) - Fecha_Relativa) * 12)
+    fecha_relativa = as.yearmon(fecha_pago),
+    mes_relativo = as.integer((min(fecha_relativa) - fecha_relativa) * 12)*-1
   ) %>%
   ungroup()
 
 # Resumir los datos por mes relativo y grupo de vehículo
-pagos_por_mes_relativo <- permiso_muestra %>%
-  group_by(Grupo_Vehiculo, Mes_Relativo) %>%
+pagos_por_mes_relativo <- vehiculo_dataset %>%
+  group_by(tipo_vehiculo, mes_relativo) %>%
   summarise(Cantidad_Pagos = n(), .groups = 'drop')
 
-# Crear el gráfico
-ggplot(pagos_por_mes_relativo, aes(x = Mes_Relativo, y = Cantidad_Pagos, color = Grupo_Vehiculo)) +
-  geom_line(size = 1) +
-  facet_wrap(~ Grupo_Vehiculo, scales = "free_y") +
-  labs(title = "Pagos Realizados por Mes Relativo",
-       x = "Mes Relativo",
-       y = "Cantidad de Pagos",
-       color = "Grupo de Vehículo") +
-  theme_minimal()
+grafico_lineas(pagos_por_mes_relativo, "mes_relativo", "Cantidad_Pagos", "tipo_vehiculo")
+
 ```
-
-
 
 ## Valores Nulos y reemplazar por la Mediana
 
@@ -386,18 +369,15 @@ En caso que se encuentren valores, se reemplazan por el valor de la mediana de c
 
 ```{r}
 #Imputar valores nulos por la mediana
-permiso_muestra <- permiso_muestra %>%
+vehiculo_dataset <- vehiculo_dataset %>%
   mutate(across(everything(), reemplazar_por_mediana))
 ```
 
 ## Descripcion de Variables normalizadas
 
 ```{r}
-# Configurar el entorno de summarytools para HTML
-st_options(style = "rmarkdown", plain.ascii = FALSE)
-
 # Obtener un resumen de los datos utilizando summarytools y renderizar en HTML
-dfSummary(permiso_muestra) %>%
+dfSummary(vehiculo_dataset) %>%
   print(method = 'render')
 ```
 
@@ -409,69 +389,57 @@ Aplicación de técnicas de modelado de datos y algoritmos de aprendizaje autom�
 
 ### 1. Selección del Modelo
 
-Para este análisis, seleccionaremos tres modelos:
-       
-1.  Regresión Lineal Múltiple: Este modelo es fácil de interpretar y puede proporcionar una línea base para la comparación con otros modelos más complejos.
-2.  Árboles de Decisión: Los árboles de decisión son útiles para capturar interacciones no lineales entre las variables y proporcionan interpretaciones claras de las decisiones del modelo.
-3.  XGBoost: Un algoritmo de boosting que combina múltiples árboles de decisión para mejorar la precisión y el rendimiento del modelo.
-
+Para este análisis, seleccionaremos el modelo XGBoost, que es un algoritmo de boosting que combina múltiples árboles de decisión para mejorar la precisión y el rendimiento del modelo.
 
 ### 2. Entrenamiento y Evaluación
 
 ### Seleccionar los datos
+
 ```{r}
 
 # Configurar semilla para reproducibilidad
 set.seed(123)
 
 # Filtrar los datos hasta el año 2018
-filtered_permiso_muestra <- permiso_muestra %>%
-  filter(Ano_Pago <= 2018)
+dataset_modelo <- vehiculo_dataset %>%
+  filter(ano_pago <= 2018)
 
-# Definir el tamaño de la muestra por cada categoría de Grupo_Vehiculo
-tamano_muestra <- min(filtered_permiso_muestra %>% count(Grupo_Vehiculo) %>% pull(n))
+# Definir el tamaño de la muestra por cada categoría de tipo_vehiculo
+tamano_muestra <- min(dataset_modelo %>% count(tipo_vehiculo) %>% pull(n))
 
 # Muestreo estratificado para asegurar la misma cantidad de datos por categoría
-filtered_permiso_muestra <- filtered_permiso_muestra %>%
-  group_by(Grupo_Vehiculo) %>%
+dataset_modelo <- dataset_modelo %>%
+  group_by(tipo_vehiculo) %>%
   sample_n(tamano_muestra) %>%
   ungroup()
 
+grafico_torta(dataset_modelo, "tipo_vehiculo")
 
-var_x <- "Grupo_Vehiculo"
-var_tipo_grafico <- "barra"
-
-grafico(
-  data = filtered_permiso_muestra, 
-  var  = var_x, 
-  tipo_grafico = var_tipo_grafico
-)
 
 ```
 
-
-
 ### Seleccionar Datos
+
 ```{r}
 
 # Calcular el mes relativo
-filtered_permiso_muestra <- filtered_permiso_muestra %>%
-  arrange(Fecha_Pago) %>%
-  group_by(Grupo_Vehiculo) %>%
+dataset_modelo <- dataset_modelo %>%
+  arrange(fecha_pago) %>%
+  group_by(tipo_vehiculo) %>%
   mutate(
-    Fecha_Relativa = as.yearmon(Fecha_Pago),
-    Mes_Relativo = as.integer((min(Fecha_Relativa) - Fecha_Relativa) * 12)
+    fecha_relativa = as.yearmon(fecha_pago),
+    mes_relativo = as.integer((min(fecha_relativa) - fecha_relativa) * 12)*-1
   ) %>%
   ungroup()
 
 # Crear la variable de cantidad de permisos por grupo de vehículo
-cantidad_permisos <- filtered_permiso_muestra %>%
-  group_by(Grupo_Vehiculo, Mes_Relativo) %>%
-  summarise(Cantidad_Permisos = n(), .groups = 'drop')
+cantidad_permisos <- dataset_modelo %>%
+  group_by(tipo_vehiculo, mes_relativo) %>%
+  summarise(cantidad_permisos = n(), .groups = 'drop')
 
 # Preparar datos con todas las variables
-datos_completos <- filtered_permiso_muestra %>%
-  left_join(cantidad_permisos, by = c("Grupo_Vehiculo", "Mes_Relativo"))
+datos_completos <- dataset_modelo %>%
+  left_join(cantidad_permisos, by = c("tipo_vehiculo", "mes_relativo"))
 
 # Convertir variables categóricas a factores
 datos_completos <- datos_completos %>%
@@ -479,7 +447,7 @@ datos_completos <- datos_completos %>%
 
 # Dividir los datos en conjuntos de entrenamiento (80%) y prueba (20%)
 set.seed(1234)
-trainIndex <- createDataPartition(datos_completos$Cantidad_Permisos, p = .8, 
+trainIndex <- createDataPartition(datos_completos$cantidad_permisos, p = .8, 
                                   list = FALSE, 
                                   times = 1)
 permisoTrain <- datos_completos[trainIndex,]
@@ -490,12 +458,12 @@ permisoTest <- permisoTest %>%
   mutate(across(where(is.factor), ~ factor(.x, levels = levels(permisoTrain[[cur_column()]]))))
 
 # Convertir variables categóricas a indicadores binarios (dummies)
-permisoTrain_matrix <- model.matrix(~ . - 1, data = permisoTrain %>% select(-Cantidad_Permisos))
-permisoTest_matrix <- model.matrix(~ . - 1, data = permisoTest %>% select(-Cantidad_Permisos))
+permisoTrain_matrix <- model.matrix(~ . - 1, data = permisoTrain %>% select(-cantidad_permisos))
+permisoTest_matrix <- model.matrix(~ . - 1, data = permisoTest %>% select(-cantidad_permisos))
 
 # Crear DMatrix para XGBoost
-dtrain_cantidad <- xgb.DMatrix(data = permisoTrain_matrix, label = permisoTrain$Cantidad_Permisos)
-dtest_cantidad <- xgb.DMatrix(data = permisoTest_matrix, label = permisoTest$Cantidad_Permisos)
+dtrain_cantidad <- xgb.DMatrix(data = permisoTrain_matrix, label = permisoTrain$cantidad_permisos)
+dtest_cantidad <- xgb.DMatrix(data = permisoTest_matrix, label = permisoTest$cantidad_permisos)
 
 # Definir parámetros para el modelo XGBoost
 params <- list(booster = "gbtree", objective = "reg:squarederror", eta = 0.3, max_depth = 6)
@@ -505,8 +473,8 @@ modelo_xgb_cantidad <- xgb.train(params, dtrain_cantidad, nrounds = 100)
 
 # Evaluar el modelo
 pred_xgb_cantidad <- predict(modelo_xgb_cantidad, dtest_cantidad)
-rmse_xgb_cantidad <- RMSE(pred_xgb_cantidad, permisoTest$Cantidad_Permisos)
-rsq_xgb_cantidad <- R2(pred_xgb_cantidad, permisoTest$Cantidad_Permisos)
+rmse_xgb_cantidad <- RMSE(pred_xgb_cantidad, permisoTest$cantidad_permisos)
+rsq_xgb_cantidad <- R2(pred_xgb_cantidad, permisoTest$cantidad_permisos)
 
 # Mostrar resultados del modelo
 resultados_cantidad <- tibble(
@@ -520,15 +488,8 @@ print(resultados_cantidad)
 
 ```
 
-
-
-
 ## 5. Interpretación de Resultados
 
 Discusión de los Resultados del Análisis:
 
-      
-•   Interpretación de los coeficientes del modelo de regresión.
-•   Identificación de las variables más influyentes.
-•   Recomendaciones basadas en los hallazgos del análisis.
-
+• Interpretación de los coeficientes del modelo de regresión. • Identificación de las variables más influyentes. • Recomendaciones basadas en los hallazgos del análisis.
