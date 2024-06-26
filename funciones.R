@@ -42,7 +42,24 @@ paleta_colores <- function() {
 
 
 
-
+eliminar_outliers <- function(dataset, variable) {
+  # Calcular el IQR y los límites para identificar valores atípicos
+  IQR_var <- IQR(dataset[[variable]], na.rm = TRUE)
+  Q1 <- quantile(dataset[[variable]], 0.25, na.rm = TRUE)
+  Q3 <- quantile(dataset[[variable]], 0.75, na.rm = TRUE)
+  lower_bound <- Q1 - 1.5 * IQR_var
+  upper_bound <- Q3 + 1.5 * IQR_var
+  
+  # Filtrar los valores atípicos
+  outliers <- dataset %>%
+    filter(!!sym(variable) < lower_bound | !!sym(variable) > upper_bound)
+  
+  # Eliminar los valores atípicos
+  dataset_sin_outliers <- dataset %>%
+    filter(!!sym(variable) >= lower_bound & !!sym(variable) <= upper_bound)
+  
+  return(list(dataset_sin_outliers = dataset_sin_outliers, outliers = outliers))
+}
 
 
 
