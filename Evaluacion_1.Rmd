@@ -40,10 +40,7 @@ library(dplyr)
 library(stringr)
 library(caret)
 library(corrplot)
-library(e1071)
 library(xgboost)
-library(ROSE)
-library(pROC)
 library(factoextra)
 library(kableExtra)
 library(summarytools)
@@ -52,6 +49,7 @@ library(zoo)
 library(ggcorrplot)
 library(lubridate)
 library(gridExtra)
+library(grid)
 
 ```
 
@@ -136,11 +134,12 @@ permiso <- permiso %>%
              forma_pago, tipo_vehiculo, marca, modelo, color,
              transmision, tipo_combustible, equipamiento), str_to_title),
     
+    # Quitar las "," y "." de los campos de valores 
+    across(c(valor_neto, valor_ipc, valor_multa, valor_pagado), 
+                ~ as.numeric(gsub("[,\\.]", "", .))),
+    
     # Convertir tipos de datos
     ano_vehiculo = as.integer(ano_vehiculo),
-    valor_multa = suppressWarnings(as.numeric(as.character(valor_multa))),
-    valor_neto = suppressWarnings(as.numeric(as.character(valor_neto))),
-    valor_pagado = suppressWarnings(as.numeric(as.character(valor_pagado))),
     fecha_pago = as.Date(fecha_pago, format = "%d-%m-%y"),
     ano_pago = as.integer(year(fecha_pago)),
     mes = month(fecha_pago, label = TRUE),
@@ -155,6 +154,7 @@ permiso <- permiso %>%
 
 # Mostrar la cantidad de registros válidos
 cat("La cantidad de registros válidos:", nrow(permiso), "\n")
+
 
 ```
 
@@ -217,7 +217,10 @@ grafico2 <- grafico_area(area_data, "mes", "count", "ano_pago")
 mostrar_graficos(grafico1, grafico2, ncol = 2)
 
 ```
+La distribución general muestra una tendencia creciente en la cantidad de pagos de un año a otro.
+Cabe destacar que por la pandimia, no se realizaron pagos de permisos de circulación durante los años 2020 - 2021.
 
+Como era de esperar, existe  un fuerte patrón estacional en los pagos de permisos de circulación, con la mayoría de los pagos concentrados en los primeros meses del año, particularmente en marzo y abril.
 
 ### Variable: Grupo Vehiculo.
 
@@ -288,21 +291,22 @@ grafico_anillo(vehiculo_dataset,"tipo_vehiculo")
 
 ```{r}
 
-# Tratamiento de outliers
-# Calcular el IQR y los límites para identificar valores atípicos
-IQR_Valor_Pagado <- IQR(vehiculo_dataset$valor_pagado, na.rm = TRUE)
-Q1 <- quantile(vehiculo_dataset$valor_pagado, 0.25, na.rm = TRUE)
-Q3 <- quantile(vehiculo_dataset$valor_pagado, 0.75, na.rm = TRUE)
-lower_bound <- Q1 - 1.5 * IQR_Valor_Pagado
-upper_bound <- Q3 + 1.5 * IQR_Valor_Pagado
+automovil_dataset <- vehiculo_liviano_dataset %>% 
+  filter(tipo_vehiculo == "Automovil")
 
-# Filtrar los valores atípicos
-outliers <- vehiculo_dataset %>%
-  filter(valor_pagado < lower_bound | valor_pagado > upper_bound)
+camioneta_dataset <- vehiculo_liviano_dataset %>% 
+  filter(tipo_vehiculo == "Camioneta")
 
-# Eliminar los valores atípicos
-vehiculo_sin_outliers <- vehiculo_dataset %>%
-  filter(valor_pagado >= lower_bound & valor_pagado <= upper_bound)
+resultado1 <- eliminar_outliers(automovil_dataset, "valor_pagado")
+resultado2 <- eliminar_outliers(camioneta_dataset, "valor_pagado")
+
+dataset_sin_outliers1 <- resultado1$dataset_sin_outliers
+dataset_sin_outliers2 <- resultado2$dataset_sin_outliers
+
+
+vehiculo_sin_outliers <- bind_rows(dataset_sin_outliers1, dataset_sin_outliers2)
+
+
 
 cat("Número de registros originales:", nrow(vehiculo_dataset), "\n")
 cat("Número de registros sin outliers:", nrow(vehiculo_sin_outliers), "\n")
