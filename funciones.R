@@ -215,49 +215,49 @@ grafico_histograma <- function(data, var_cuant_x) {
   
   
   grafico_boxplot <- function(data, var_cuant_x, titulo) {
-    colores <- paleta_colores()
-    
-    x <- sym(var_cuant_x)
-    stats <- data %>% 
-      summarise(
-        Min = min(!!x, na.rm = TRUE),
-        Q1 = quantile(!!x, 0.25, na.rm = TRUE),
-        Mediana = median(!!x, na.rm = TRUE),
-        Q3 = quantile(!!x, 0.75, na.rm = TRUE),
-        Max = max(!!x, na.rm = TRUE)
-      )
-    
-    IQR <- stats$Q3 - stats$Q1
-    bigote_superior <- min(stats$Max, stats$Q3 + 1.5 * IQR)
-    bigote_inferior <- max(stats$Min, stats$Q1 - 1.5 * IQR)
-    
-    p <- ggplot(data, aes(x = factor(1), y = !!x)) +
-      geom_boxplot(alpha = 0.5, outlier.shape = NA, fill = colores[3]) + 
-      geom_jitter(shape = 10, position = position_jitter(0.15), size = 1, alpha = 0.7, color = colores[6]) +
-      labs(title = titulo)+ 
-      #caption = paste("Este boxplot con puntos muestra la distribución de", var_cuant_x, ".")) +
-      theme_minimal() +
-      theme(plot.title = element_text(size = 10))+
-      guides(fill = "none") +
-      theme(
-        legend.position = "none", 
-        axis.title.y = element_blank(), 
-        axis.text.y = element_blank(), 
-        axis.ticks.y = element_blank(),
-        axis.title.x = element_blank(),
-        axis.text.x = element_blank(),
-        axis.ticks.x = element_blank()
-      ) + 
-      annotate("label", x = 1.3, y = stats$Min, label = paste("Min:", format(round(stats$Min, 0), big.mark = ".", decimal.mark = ",", nsmall = 0)), hjust = 0.5, size = 3, fill = "grey90") +
-      annotate("label", x = 1.3, y = stats$Q1, label = paste("Q1:", format(round(stats$Q1, 0), big.mark = ".", decimal.mark = ",", nsmall = 0)), hjust = 0.5, size = 3, fill = "grey90") +
-      annotate("label", x = 1.3, y = stats$Mediana, label = paste("Mediana:", format(round(stats$Mediana, 0), big.mark = ".", decimal.mark = ",", nsmall = 0)), hjust = 0.5, size = 3, fill = "grey90") +
-      annotate("label", x = 1.3, y = stats$Q3, label = paste("Q3:", format(round(stats$Q3, 0), big.mark = ".", decimal.mark = ",", nsmall = 0)), hjust = 0.5, size = 3, fill = "grey90") +
-      annotate("label", x = 1.3, y = bigote_superior, label = paste("Bigote Sup.:", format(round(bigote_superior, 0), big.mark = ".", decimal.mark = ",", nsmall = 0)), hjust = 0.5, size = 3, fill = "grey90") +
-      annotate("label", x = 1.3, y = bigote_inferior, label = paste("Bigote Inf.:", format(round(bigote_inferior, 0), big.mark = ".", decimal.mark = ",", nsmall = 0)), hjust = 0.5, size = 3, fill = "grey90") +
-      annotate("label", x = 1.3, y = stats$Max, label = paste("Max:", format(round(stats$Max, 0), big.mark = ".", decimal.mark = ",", nsmall = 0)), hjust = 0.5, size = 3, fill = "grey90")
-    
-    return(p)
-  }
+  colores <- paleta_colores()
+  
+  x <- sym(var_cuant_x)
+  stats <- data %>% 
+    summarise(
+      Min = min(!!x, na.rm = TRUE),
+      Q1 = quantile(!!x, 0.25, na.rm = TRUE),
+      Mediana = median(!!x, na.rm = TRUE),
+      Q3 = quantile(!!x, 0.75, na.rm = TRUE),
+      Max = max(!!x, na.rm = TRUE)
+    )
+  
+  IQR <- stats$Q3 - stats$Q1
+  bigote_superior <- min(stats$Max, stats$Q3 + 1.5 * IQR)
+  bigote_inferior <- max(stats$Min, stats$Q1 - 1.5 * IQR)
+  
+  p <- ggplot(data, aes(x = factor(1), y = !!x)) +
+    geom_violin(alpha = 0.5, fill = colores[2]) + 
+    geom_boxplot(alpha = 0.5,  fill = colores[3], width = 0.1) + 
+    #geom_jitter(shape = 10, position = position_jitter(0.15), size = 1, alpha = 0.7, color = colores[6]) +
+    labs(title = titulo) + 
+    theme_minimal() +
+    theme(plot.title = element_text(size = 10)) +
+    guides(fill = "none") +
+    theme(
+      legend.position = "none", 
+      axis.title.y = element_blank(), 
+      axis.text.y = element_blank(), 
+      axis.ticks.y = element_blank(),
+      axis.title.x = element_blank(),
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank()
+    ) + 
+    annotate("label", x = 1.3, y = stats$Min, label = paste("Min:", format(round(stats$Min, 0), big.mark = ".", decimal.mark = ",", nsmall = 0)), hjust = 0.5, size = 3, fill = "grey90") +
+    annotate("label", x = 1.3, y = stats$Q1, label = paste("Q1:", format(round(stats$Q1, 0), big.mark = ".", decimal.mark = ",", nsmall = 0)), hjust = 0.5, size = 3, fill = "grey90") +
+    annotate("label", x = 1.3, y = stats$Mediana, label = paste("Mediana:", format(round(stats$Mediana, 0), big.mark = ".", decimal.mark = ",", nsmall = 0)), hjust = 0.5, size = 3, fill = "grey90") +
+    annotate("label", x = 1.3, y = stats$Q3, label = paste("Q3:", format(round(stats$Q3, 0), big.mark = ".", decimal.mark = ",", nsmall = 0)), hjust = 0.5, size = 3, fill = "grey90") +
+    annotate("label", x = 1.3, y = bigote_superior, label = paste("Bigote Sup.:", format(round(bigote_superior, 0), big.mark = ".", decimal.mark = ",", nsmall = 0)), hjust = 0.5, size = 3, fill = "grey90") +
+    annotate("label", x = 1.3, y = bigote_inferior, label = paste("Bigote Inf.:", format(round(bigote_inferior, 0), big.mark = ".", decimal.mark = ",", nsmall = 0)), hjust = 0.5, size = 3, fill = "grey90") +
+    annotate("label", x = 1.3, y = stats$Max, label = paste("Max:", format(round(stats$Max, 0), big.mark = ".", decimal.mark = ",", nsmall = 0)), hjust = 0.5, size = 3, fill = "grey90")
+  
+  return(p)
+}
   
   
   
