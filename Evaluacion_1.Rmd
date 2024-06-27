@@ -15,18 +15,16 @@ Analizar los datos de permisos de circulación vehicular en Calbuco para identif
 
 ## Descripción del Conjunto de Datos
 
-El conjunto de datos seleccionado para este análisis proviene de los registros de permisos de circulación en la Municipalidad de Calbuco. Este conjunto de datos contiene información detallada sobre vehículos y sus permisos de circulación, incluyendo variables como el tipo de vehículo, año de fabricación, marca, modelo, color, tipo de combustible, y valor del permiso, entre otros.
+l conjunto de datos proviene de los registros de permisos de circulación de la Municipalidad de Calbuco y contiene información detallada sobre vehículos y sus permisos de circulación, incluyendo variables como tipo de vehículo, año de fabricación, marca, modelo, color, tipo de combustible, y valor del permiso.
 
 ## Objetivos del Análisis
 
-El objetivo principal de este análisis es investigar y comprender los patrones y tendencias en los permisos de circulación vehicular en Calbuco. Específicamente, se busca:
+El objetivo principal es investigar y comprender los patrones y tendencias en los permisos de circulación vehicular en Calbuco. Específicamente, se busca:
 
-```         
-1.  Identificar las características más comunes de los vehículos que obtienen permisos de circulación.
-2.  Analizar la distribución temporal de la obtención de permisos.
-3.  Explorar posibles relaciones entre las características de los vehículos y el costo del permiso.
-4.  Realizar un modelo que permita estimar la cantidad de pagos que se recibiran en un periodo de tiempo.
-```
+Identificar las características más comunes de los vehículos que obtienen permisos de circulación.
+Analizar la distribución temporal de la obtención de permisos.
+Explorar posibles relaciones entre las características de los vehículos y el costo del permiso.
+Realizar un modelo que permita estimar la cantidad de pagos que se recibirán en un periodo de tiempo.
 
 # Procesamiento de Datos
 
@@ -34,6 +32,7 @@ El preprocesamiento de datos es un paso crucial para garantizar que los datos es
 
 ## Carga Librerias
 
+Se cargan las librerías necesarias para la manipulación de datos, visualización y modelado, como dplyr, stringr, caret, corrplot, xgboost, entre otras.
 ```{r}
 # Cargar librerías necesarias
 library(dplyr)
@@ -50,11 +49,12 @@ library(ggcorrplot)
 library(lubridate)
 library(gridExtra)
 library(grid)
+library(rlang)
 
 ```
 
 ## Cargas funciones y base de datos
-
+Se cargan funciones específicas desde un archivo de GitHub y los datos de permisos de circulación desde un CSV en GitHub.
 ```{r}
 # Enlace raw al archivo de funciones en GitHub
 source("https://raw.githubusercontent.com/jkcrs1/R/main/funciones.R")
@@ -69,7 +69,7 @@ permiso <- read.csv(url3, sep = ";", fileEncoding = "ISO-8859-1")
 
 ## Tipos de Variables
 
-Utilizando el paquete summarytools, se genera un resumen detallado de todas las variables del dataframe. Este informe incluye estadísticas descriptivas, frecuencias, gráficos de barras para variables categóricas y otras visualizaciones útiles para el análisis de datos.
+Se utiliza el paquete summarytools para generar un resumen detallado de las variables del dataframe.
 
 ```{r}
 # Obtener un resumen de los datos utilizando summarytools y renderizar en HTML
@@ -79,7 +79,7 @@ dfSummary(permiso) %>%
 
 ## Normalización de las Variables
 
-Se procede a normalizar y limpiar el conjunto de datos, asegurando que las variables estén en el formato correcto y que los valores nulos se manejen adecuadamente.
+Se normalizan y limpian las variables del conjunto de datos, recodificando variables categóricas, reemplazando valores nulos y transformando datos según sea necesario.
 
 ```{r}
 # Convertir permiso a data.frame (por si no lo es)
@@ -160,7 +160,7 @@ cat("La cantidad de registros válidos:", nrow(permiso), "\n")
 
 ## Traformación de variables categoricas a Factor
 
-Para asegurar un análisis e interpretación adecuados de los datos, las variables categóricas se transforman a factores.
+Las variables categóricas se transforman a factores para asegurar un análisis adecuado.
 
 ```{r}
 
@@ -180,6 +180,7 @@ permiso <- permiso %>%
 
 ## Seleccionar variables relevantes
 
+Se seleccionan las variables relevantes para el análisis.
 ```{r}
 permiso_relevante <- permiso %>%
   select(grupo_vehiculo, ano_vehiculo, tipo_de_pago, fecha_pago, ano_pago, mes, mes_pago, ano_mes_pago, valor_neto, valor_ipc, valor_multa, valor_pagado, forma_pago, tipo_vehiculo, marca)
@@ -187,8 +188,7 @@ permiso_relevante <- permiso %>%
 
 ## Muestreo
 
-Para asegurar una representación adecuada de cada grupo, realizaremos un muestreo estratificado de los datos. Este proceso garantiza que cada estrato (grupo) esté proporcionalmente representado en la muestra.
-
+Se realiza un muestreo estratificado para asegurar una representación adecuada de cada grupo en los datos.
 ```{r}
 
 # Calcular la muestra aleatoria según Desviación Estándar
@@ -203,6 +203,7 @@ cat("La cantidad de registros de muestra es:", nrow(permiso_muestra))
 ```
 
 ### Distribucion de Pagos por Año y Meses
+Se analiza la distribución de pagos de permisos de circulación por año y mes.
 
 ```{r}
 
@@ -222,8 +223,9 @@ Cabe destacar que por la pandimia, no se realizaron pagos de permisos de circula
 
 Como era de esperar, existe  un fuerte patrón estacional en los pagos de permisos de circulación, con la mayoría de los pagos concentrados en los primeros meses del año, particularmente en marzo y abril.
 
-### Variable: Grupo Vehiculo.
+### Variable: Grupo Vehículo.
 
+Se crean gráficos para analizar la distribución de pagos por tipo de vehículo.
 ```{r}
 
 # Crear gráficos individuales
@@ -236,6 +238,7 @@ mostrar_graficos(grafico1, grafico2, ncol = 2)
 
 ```
 
+El 90% de los permisos de circulación son pagados por vehiculos livianos,concentrándose, en su mayoría, en Automóvil y Camioneta.
 
 
 
@@ -261,6 +264,7 @@ mostrar_graficos(grafico1, grafico2,grafico3, ncol = 3)
 
 ```
 
+
 ### BoxPlot por tipo de Vehiculo
 
 ```{r}
@@ -278,6 +282,8 @@ mostrar_graficos(grafico1, grafico2, ncol = 2)
 ```
 ## Selecionar Dataset de Automoviles y Camionetas
 
+Debido a que concentran gran parte de los permisos de circulación que son pagados, en análisis se centrará en Automoviles y Camionetas.
+
 ```{r}
 vehiculo_dataset <- vehiculo_liviano_dataset %>% 
   filter(tipo_vehiculo == "Automovil" | tipo_vehiculo == "Camioneta")
@@ -288,7 +294,7 @@ grafico_anillo(vehiculo_dataset,"tipo_vehiculo")
 
 
 ## Tratamiento de Outliers
-
+Se identifican y eliminan outliers de los datos para asegurar un análisis más preciso.
 ```{r}
 
 automovil_dataset <- vehiculo_liviano_dataset %>% 
@@ -332,7 +338,7 @@ mostrar_graficos(grafico1, grafico2, ncol = 2)
 
 
 ## Matriz de correlacion
-
+Se analiza la correlación entre las variables del conjunto de datos.
 ```{r}
 # Crear gráficos individuales
 grafico1 <- grafico_matriz_correlacion( vehiculo_dataset)
@@ -344,8 +350,8 @@ mostrar_graficos(grafico1, grafico2, ncol = 2)
 
 ```
 
-## Distribucion de Pagos en Grupos de Vehiculos por Meses Relativos
-
+## Distribución de Pagos en Grupos de Vehículos por Meses Relativos
+Se genera un resumen de las variables normalizadas utilizando summarytools.
 ```{r}
 # Filtrar y transformar los datos
 
@@ -366,6 +372,7 @@ pagos_por_mes_relativo <- vehiculo_dataset %>%
 grafico_lineas(pagos_por_mes_relativo, "mes_relativo", "Cantidad_Pagos", "tipo_vehiculo")
 
 ```
+Se observa una tendencia proporcionada entre ambos tipos de vehículos, donde ambos tienen un comportamiento similar.
 
 ## Valores Nulos y reemplazar por la Mediana
 
@@ -393,10 +400,12 @@ Aplicación de técnicas de modelado de datos y algoritmos de aprendizaje autom�
 
 ### 1. Selección del Modelo
 
-Para este análisis, seleccionaremos el modelo XGBoost, que es un algoritmo de boosting que combina múltiples árboles de decisión para mejorar la precisión y el rendimiento del modelo.
+Se selecciona el modelo XGBoost para estimar la cantidad de permisos que se pagarán en los próximos 6 meses por grupo y tipo de vehículo.
 
 ### 2. Entrenamiento y Evaluación
 
+Se entrena el modelo XGBoost con los datos y se evalúa su rendimiento utilizando métricas como RMSE y R2.
+est
 ### Seleccionar los datos
 
 ```{r}
@@ -492,8 +501,57 @@ print(resultados_cantidad)
 
 ```
 
+
+```{r}
+
+# Predicciones vs. Valores Reales
+pred_df <- data.frame(
+  Actual = permisoTest$cantidad_permisos,
+  Predicted = pred_xgb_cantidad
+)
+
+grafico_pred_vs_real <- ggplot(pred_df, aes(x = Actual, y = Predicted)) +
+  geom_point(alpha = 0.5) +
+  geom_abline(slope = 1, intercept = 0, color = "red") +
+  labs(title = "Predicciones vs. Valores Reales", x = "Valores Reales", y = "Predicciones") +
+  theme_minimal()
+
+
+# Residuos
+residuals <- pred_df$Actual - pred_df$Predicted
+
+grafico_residuos <- ggplot(pred_df, aes(x = Predicted, y = residuals)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, color = "red") +
+  labs(title = "Gráfico de Residuos", x = "Predicciones", y = "Residuos") +
+  theme_minimal()
+
+
+
+mostrar_graficos(grafico_pred_vs_real, grafico_residuos, ncol = 2)
+
+```
+La mayoría de los puntos están alineados a lo largo de la línea roja, lo que indica que las predicciones del modelo son muy precisas.
+La mayoría de los residuos están cerca de la línea roja horizontal (residuo = 0), lo que indica que las predicciones son precisas y los errores son pequeños.
+
+```{r}
+# Importancia en las variables
+importance_matrix <- xgb.importance(feature_names = colnames(permisoTrain_matrix), model = modelo_xgb_cantidad)
+xgb.plot.importance(importance_matrix, top_n = 15)
+```
+La variable "mes^7" es la más influyente, con una importancia mucho mayor que las demás. Esto sugiere que la variación en el mes tiene un impacto significativo en la predicción de la cantidad de permisos.
+
+
 ## 5. Interpretación de Resultados
 
-Discusión de los Resultados del Análisis:
+La evaluación del modelo XGBoost ha arrojado resultados muy positivos, con un RMSE (Root Mean Square Error) de 0.4046614 y un R² de 0.9999835. Estos valores indican que el modelo tiene un desempeño excelente en la predicción de la cantidad de permisos de circulación.
 
-• Interpretación de los coeficientes del modelo de regresión. • Identificación de las variables más influyentes. • Recomendaciones basadas en los hallazgos del análisis.
+RMSE (Root Mean Square Error): El RMSE es una métrica que mide el error promedio de las predicciones del modelo. Un RMSE de 0.4046614 sugiere que el modelo comete un error muy bajo al predecir la cantidad de permisos, lo cual es un resultado muy favorable.
+
+R² (Coeficiente de Determinación): El R² de 0.9999835 indica que el modelo explica el 99.99835% de la variabilidad en los datos de permisos de circulación. Un R² tan cercano a 1 implica que el modelo tiene una precisión extremadamente alta y que las predicciones están muy bien alineadas con los valores reales.
+
+
+# Conclusión 
+
+El análisis de los datos de permisos de circulación vehicular en Calbuco mediante el modelo XGBoost ha demostrado ser muy eficaz. 
+Los resultados sugieren que el modelo puede predecir con gran precisión la cantidad de permisos que se pagarán en el futuro, lo cual es una herramienta valiosa para la planificación y gestión de recursos en la municipalidad.
