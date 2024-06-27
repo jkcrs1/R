@@ -1,7 +1,7 @@
 
 # Instalar y cargar las librerías necesarias
 required_packages <- c("ggplot2", "dplyr", "paletteer",
-                       "ggrepel","RColorBrewer","ggcorrplot")
+                       "ggrepel","RColorBrewer","ggcorrplot","rlang")
 
 installed_packages <- rownames(installed.packages())
 
