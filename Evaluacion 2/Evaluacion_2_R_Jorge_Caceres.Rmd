@@ -1,3 +1,4 @@
+
 ---
 title: "Evaluacion 2"
 author: "Jorge Cáceres Barrales"
@@ -23,23 +24,9 @@ library(xgboost)
 library(data.table)
 library(dplyr)
 
-
-
-library(dplyr)
 library(stringr)
-library(caret)
 library(corrplot)
-library(xgboost)
-library(factoextra)
-library(kableExtra)
-library(summarytools)
-library(httr)
-library(zoo)
-library(ggcorrplot)
-library(lubridate)
-library(gridExtra)
-library(grid)
-library(rlang)
+
 
 ```
 
@@ -305,4 +292,3 @@ test_that("GridSearchCV funciona correctamente", {
 # Ejecutar las pruebas
 test_dir("tests")
 ```
-
