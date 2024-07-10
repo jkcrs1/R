@@ -24,6 +24,23 @@ library(data.table)
 library(dplyr)
 
 
+
+library(dplyr)
+library(stringr)
+library(caret)
+library(corrplot)
+library(xgboost)
+library(factoextra)
+library(kableExtra)
+library(summarytools)
+library(httr)
+library(zoo)
+library(ggcorrplot)
+library(lubridate)
+library(gridExtra)
+library(grid)
+library(rlang)
+
 ```
 
 ## Cargas funciones y base de datos
@@ -105,7 +122,6 @@ data <- data %>%
     ano_vehiculo = as.integer(ano_vehiculo),
     fecha_pago = as.Date(fecha_pago, format = "%d-%m-%y"),
     ano_pago = as.integer(year(fecha_pago)),
-    mes = month(fecha_pago, label = TRUE),
     mes_pago = as.integer(month(fecha_pago)),
     
     # Crear la variable Ano_Mes_Pago
@@ -136,7 +152,8 @@ data <- data %>%
   mutate(ano_mes_pago = factor(ano_mes_pago, levels = unique(ano_mes_pago))) %>%
   select(-fecha)
 
-
+data <- data %>%
+  mutate(across(everything(), reemplazar_por_mediana))
 ```
 
 
@@ -145,36 +162,100 @@ data <- data %>%
 # Funcion de Búsqueda de Hiperparametro
 
 ```{r}
-GridSearchCV <- function(data, target_var, parameters, n_folds = 3, scoring = "RMSE") {
+GridSearchCV <- function(data, target_var, parameters, n_folds = 3, scoring = c("RMSE", "MAE")) {
   # Validar los argumentos
-  if (!is.data.frame(data)) stop("Los datos en 'data' debe ser un data.frame")
-  if (!target_var %in% colnames(data)) stop("La variable 'target_var' debe ser una columna del data.frame")
+  if (!is.data.frame(data)) stop("El argumento 'data' debe ser un data.frame")
+  if (!target_var %in% colnames(data)) stop("El argumento 'target_var' debe ser una columna del data.frame")
+  
+  print("Columnas iniciales:")
+  print(colnames(data))
+  
+  # Determinar si es un problema de clasificación o regresión
+  is_classification <- is.factor(data[[target_var]])
   
   # Preparar los datos para caret
   data <- data %>% mutate(across(where(is.character), as.factor))
   
+  print("Columnas después de convertir caracteres a factores:")
+  print(colnames(data))
+  
+  # Identificar y mostrar filas con valores faltantes
+  na_columns <- colnames(data)[colSums(is.na(data)) > 0]
+  if (length(na_columns) > 0) {
+    cat("Columnas con valores faltantes que serán eliminadas:\n")
+    print(na_columns)
+  } else {
+    cat("No hay columnas con valores faltantes.\n")
+  }
+  
+  # Eliminar filas con valores faltantes
+  data <- na.omit(data)
+  
+  print("Columnas después de eliminar filas con valores faltantes:")
+  print(colnames(data))
+  
+  # Verificar la presencia de valores faltantes
+  if (any(colSums(is.na(data)) > 0)) {
+    stop("Aún hay valores faltantes en los datos después de eliminar filas con NA")
+  }
+  
+  # Identificar y mostrar columnas con un solo nivel
+  single_level_columns <- colnames(data)[sapply(data, function(col) nlevels(as.factor(col))) <= 1]
+  if (length(single_level_columns) > 0) {
+    cat("Columnas con un solo nivel que serán eliminadas:\n")
+    print(single_level_columns)
+  } else {
+    cat("No hay columnas con un solo nivel.\n")
+  }
+  
+  # Eliminar columnas con un solo nivel (un valor único)
+  data <- data %>% select_if(~ nlevels(.) > 1)
+  
+  print("Columnas después de eliminar columnas con un solo nivel:")
+  print(colnames(data))
+  
+  # Verificar nuevamente la presencia de la columna target
+  if (!target_var %in% colnames(data)) stop(paste("La columna", target_var, "no se encuentra en los datos después de eliminar columnas con un solo nivel"))
+  
+  # Definir la función de resumen
+  summary_function <- if (is_classification) twoClassSummary else defaultSummary
+  
   # Definir el control para el entrenamiento
-  train_control <- trainControl(method = "cv", number = n_folds, verboseIter = TRUE)
-  
-  # Definir grid de hiperparámetros
-  grid <- expand.grid(parameters)
-  
-  # Entrenar el modelo usando caret
-  modelo <- train(
-    as.formula(paste(target_var, "~ .")),
-    data = data,
-    method = "xgbTree",
-    trControl = train_control,
-    tuneGrid = grid,
-    metric = scoring
+  train_control <- trainControl(
+    method = "cv", 
+    number = n_folds, 
+    summaryFunction = summary_function, 
+    verboseIter = TRUE,
+    classProbs = is_classification,  # Activar probabilidades para clasificación
+    savePredictions = "final"
   )
   
-  # Obtener los mejores hiperparámetros
-  mejor_modelo <- modelo$bestTune
+  # Definir la rejilla de hiperparámetros
+  grid <- expand.grid(parameters)
   
-  # Retornar el modelo entrenado y los mejores hiperparámetros
-  return(list(model = modelo, best_parameters = mejor_modelo))
+  # Inicializar una lista para almacenar los resultados de cada métrica
+  results <- list()
+  
+  # Entrenar el modelo usando caret para cada métrica
+  for (metric in scoring) {
+    model <- train(
+      as.formula(paste(target_var, "~ .")),
+      data = data,
+      method = "xgbTree",
+      trControl = train_control,
+      tuneGrid = grid,
+      metric = metric
+    )
+    
+    # Obtener los mejores hiperparámetros para la métrica actual
+    best_model <- model$bestTune
+    results[[metric]] <- list(model = model, best_parameters = best_model)
+  }
+  
+  # Retornar los resultados para todas las métricas
+  return(results)
 }
+
 ```
 
 
@@ -191,7 +272,7 @@ parameters <- list(
   min_child_weight = c(1, 3, 5)
 )
 
-result <- GridSearchCV(data, "valor_pagado", parameters, n_folds = 5, scoring = "RMSE")
+result <- GridSearchCV(data, "marca", parameters, n_folds = 5, scoring = "RMSE")
 ```
 
 
