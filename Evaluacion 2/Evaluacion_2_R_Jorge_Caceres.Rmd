@@ -141,12 +141,24 @@ data <- data %>%
 
 data <- data %>%
   mutate(across(everything(), reemplazar_por_mediana))
+
+data$marca <- factor(data$marca)
+data$marca <- droplevels(data$marca)
+
 ```
 
 
 
 
 # Funcion de Búsqueda de Hiperparametro
+
+```{r}
+make.names.factor <- function(f) {
+  levels(f) <- make.names(levels(f))
+  return(f)
+}
+```
+
 
 ```{r}
 GridSearchCV <- function(data, target_var, parameters, n_folds = 3, scoring = c("RMSE", "MAE")) {
@@ -200,6 +212,15 @@ GridSearchCV <- function(data, target_var, parameters, n_folds = 3, scoring = c(
   
   print("Columnas después de eliminar columnas con un solo nivel:")
   print(colnames(data))
+  
+  
+   # Eliminar niveles vacíos en la variable target
+  data[[target_var]] <- droplevels(data[[target_var]])
+  
+   # Convertir niveles de factores a nombres válidos de R
+  if (is_classification) {
+    data[[target_var]] <- make.names.factor(data[[target_var]])
+  }
   
   # Verificar nuevamente la presencia de la columna target
   if (!target_var %in% colnames(data)) stop(paste("La columna", target_var, "no se encuentra en los datos después de eliminar columnas con un solo nivel"))
@@ -258,6 +279,8 @@ parameters <- list(
   colsample_bytree = c(0.5, 0.7, 1),
   min_child_weight = c(1, 3, 5)
 )
+
+
 
 result <- GridSearchCV(data, "marca", parameters, n_folds = 5, scoring = "RMSE")
 ```
