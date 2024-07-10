@@ -1,0 +1,227 @@
+---
+title: "Evaluacion 2"
+author: "Jorge Cáceres Barrales"
+date: "2024-07-09"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+# Objetivo de Investigación
+
+Relizar una funcion que permita realizar búsquedas de hiperparámetros utilizando validación cruzada para varios algoritmos de aprendizaje automático,
+
+# Introducción
+
+
+## Carga Librerias
+
+```{r}
+# Cargar librerías necesarias
+library(caret)
+library(xgboost)
+library(data.table)
+library(dplyr)
+
+
+```
+
+## Cargas funciones y base de datos
+Se cargan funciones específicas desde un archivo de GitHub y los datos de permisos de circulación desde un CSV en GitHub.
+```{r}
+# Enlace raw al archivo de funciones en GitHub
+source("https://raw.githubusercontent.com/jkcrs1/R/main/funciones.R")
+
+# Permisos circulación  pagados en la municipalidad de calbuco
+url3 <- "https://github.com/jkcrs1/R/raw/main/permiso_circulacion_calbuco.csv"
+
+# Prueba con diferentes codificaciones
+data <- read.csv(url3, sep = ";", fileEncoding = "ISO-8859-1")
+
+```
+
+## Normalización de las Variables
+
+Se normalizan y limpian las variables del conjunto de datos, recodificando variables categóricas, reemplazando valores nulos y transformando datos según sea necesario.
+
+```{r}
+# Convertir data a data.frame (por si no lo es)
+data <- data.frame(data)
+
+# Cambio de nombres de columnas: reemplazar puntos por guiones bajos y convertir a minúsculas
+colnames(data) <- colnames(data) %>% str_replace_all("\\.", "_") %>% tolower()
+
+# Mapas de recodificación
+tipo_vehiculo_mapeo <- c(
+  "AMBULANCIA" = "AMBULANCIA", "AUTOMOVIL" = "AUTOMOVIL", "BUS" = "BUS",
+  "Cabriolet" = "AUTOMOVIL", "CAMION" = "CAMION", "CAMIONETA" = "CAMIONETA",
+  "CARRO ARRASTRE A" = "REMOLQUE", "CARRO BOMBA" = "CARRO BOMBA",
+  "CASA RODANTE" = "CASA RODANTE", "Comercial" = "COMERCIAL", "CUATRIMOTO" = "CUATRIMOTO",
+  "FURGON" = "FURGON", "GRUA" = "MAQUINA PESADA", "Hatchback" = "AUTOMOVIL",
+  "JEEP" = "AUTOMOVIL", "MAQUINA INDUSTRIAL" = "MAQUINA INDUSTRIAL",
+  "MINIBUS" = "MINIBUS", "MINIBUS ESCOLAR" = "MINIBUS", "MINIBUS PARTICULAR" = "MINIBUS",
+  "MINIBUS PRIVADO" = "MINIBUS", "MINIBUS TURISMO" = "MINIBUS", "MOTO" = "MOTOCICLETA",
+  "MOTOCICLETA" = "MOTOCICLETA", "OTROS" = "OTROS", "REMOLQUE A" = "REMOLQUE",
+  "REMOLQUE B" = "REMOLQUE", "RETROEXCAVADORA" = "MAQUINA PESADA", "Sedan" = "AUTOMOVIL",
+  "SEMI REMOLQUE" = "REMOLQUE", "STATION WAGON" = "AUTOMOVIL", "SUV" = "SUV",
+  "TAXI EJECUTIVO" = "TAXI", "TAXI BASICO" = "TAXI", "TAXI COLECTIVO" = "TAXI",
+  "TRACTOCAMION" = "CAMION", "TRACTOR" = "TRACTOR", "VAN" = "VAN"
+)
+
+tipo_combustible_mapeo <- c(
+  "Benc" = "Bencina", "Dies" = "Diesel", "NULL" = "NULL",
+  "DUAL" = "Hibrido", "Hibr" = "Hibrido", "Elec" = "Electrico"
+)
+
+transmision_mapeo <- c(
+  "Mec" = "Mecanica", "Aut" = "Automatica", "NULL" = "NULL",
+  "CVT" = "Automatica", "DCT" = "Automatica"
+)
+
+# Mostrar la cantidad de registros iniciales
+cat("La cantidad de registros:", nrow(data), "\n")
+
+# Aplicar todas las transformaciones y normalizaciones
+data <- data %>%
+  mutate(
+    # Recodificar las variables categóricas
+    tipo_vehiculo = recode(tipo_vehiculo, !!!tipo_vehiculo_mapeo),
+    tipo_combustible = recode(tipo_combustible, !!!tipo_combustible_mapeo),
+    transmision = recode(transmision, !!!transmision_mapeo),
+    
+    # Reemplazar nulos en todas las variables
+    across(everything(), reemplazar_nulos),
+    
+    # Convertir a título en variables específicas
+    across(c(municipalidad, grupo_vehiculo, placa, digito, codigo_sii,
+             forma_pago, tipo_vehiculo, marca, modelo, color,
+             transmision, tipo_combustible, equipamiento), str_to_title),
+    
+    # Quitar las "," y "." de los campos de valores 
+    across(c(valor_neto, valor_ipc, valor_multa, valor_pagado), 
+                ~ as.numeric(gsub("[,\\.]", "", .))),
+    
+    # Convertir tipos de datos
+    ano_vehiculo = as.integer(ano_vehiculo),
+    fecha_pago = as.Date(fecha_pago, format = "%d-%m-%y"),
+    ano_pago = as.integer(year(fecha_pago)),
+    mes = month(fecha_pago, label = TRUE),
+    mes_pago = as.integer(month(fecha_pago)),
+    
+    # Crear la variable Ano_Mes_Pago
+    ano_mes_pago = paste(sprintf("%02d", mes_pago), substr(ano_pago, 3, 4), sep = "-")
+  ) %>%
+  # Filtrar y eliminar duplicados
+  filter(!is.na(valor_pagado) & !is.na(fecha_pago) & valor_pagado > 0) %>%
+  distinct()
+
+# Mostrar la cantidad de registros válidos
+cat("La cantidad de registros válidos:", nrow(data), "\n")
+
+
+```
+
+## Traformación de variables categoricas a Factor
+
+Las variables categóricas se transforman a factores para asegurar un análisis adecuado.
+
+```{r}
+
+# Transformar las variables a factor con los niveles definidos
+data <- data %>%
+  mutate(across(where(is.character), as.factor),
+         fecha = as.Date(paste(ano_pago, mes_pago, "01", sep = "-"), format = "%Y-%m-%d"),
+         ano_mes_pago = paste(sprintf("%02d", mes_pago), substr(ano_pago, 3, 4), sep = "-")) %>%
+  arrange(fecha) %>%
+  mutate(ano_mes_pago = factor(ano_mes_pago, levels = unique(ano_mes_pago))) %>%
+  select(-fecha)
+
+
+```
+
+
+
+
+# Funcion de Búsqueda de Hiperparametro
+
+```{r}
+GridSearchCV <- function(data, target_var, parameters, n_folds = 3, scoring = "RMSE") {
+  # Validar los argumentos
+  if (!is.data.frame(data)) stop("Los datos en 'data' debe ser un data.frame")
+  if (!target_var %in% colnames(data)) stop("La variable 'target_var' debe ser una columna del data.frame")
+  
+  # Preparar los datos para caret
+  data <- data %>% mutate(across(where(is.character), as.factor))
+  
+  # Definir el control para el entrenamiento
+  train_control <- trainControl(method = "cv", number = n_folds, verboseIter = TRUE)
+  
+  # Definir grid de hiperparámetros
+  grid <- expand.grid(parameters)
+  
+  # Entrenar el modelo usando caret
+  modelo <- train(
+    as.formula(paste(target_var, "~ .")),
+    data = data,
+    method = "xgbTree",
+    trControl = train_control,
+    tuneGrid = grid,
+    metric = scoring
+  )
+  
+  # Obtener los mejores hiperparámetros
+  mejor_modelo <- modelo$bestTune
+  
+  # Retornar el modelo entrenado y los mejores hiperparámetros
+  return(list(model = modelo, best_parameters = mejor_modelo))
+}
+```
+
+
+
+
+
+```{r}
+parameters <- list(
+  nrounds = c(10, 50, 100),
+  max_depth = c(3, 6, 9),
+  eta = c(0.1, 0.01, 0.05),
+  gamma = c(0, 0.1, 0.2),
+  colsample_bytree = c(0.5, 0.7, 1),
+  min_child_weight = c(1, 3, 5)
+)
+
+result <- GridSearchCV(data, "valor_pagado", parameters, n_folds = 5, scoring = "RMSE")
+```
+
+
+
+
+# Pruebas y Validacion 
+
+```{r}
+
+
+library(testthat)
+
+test_that("GridSearchCV funciona correctamente", {
+  data <- fread(data_url, sep = ";", encoding = "ISO-8859-1")
+  data <- data %>% mutate(fecha_pago = as.Date(fecha_pago, format = "%d-%m-%y"))
+  
+  parameters <- list(
+    nrounds = c(50, 100),
+    max_depth = c(3, 6),
+    eta = c(0.1, 0.01)
+  )
+  
+  result <- GridSearchCV(data, "valor_pagado", parameters, n_folds = 3, scoring = "RMSE")
+  
+  expect_true(is.list(result))
+  expect_true("model" %in% names(result))
+  expect_true("best_parameters" %in% names(result))
+})
+
+# Ejecutar las pruebas
+test_dir("tests")
+```
+
