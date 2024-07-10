@@ -161,10 +161,11 @@ make.names.factor <- function(f) {
 
 
 ```{r}
-GridSearchCV <- function(data, target_var, parameters, n_folds = 3, scoring = c("RMSE", "MAE")) {
+# Definir la función GridSearchCV
+
+GridSearchCV <- function(data, target_var, parameters, n_folds = 3, scoring) {
   # Validar los argumentos
-  if (!is.data.frame(data)) stop("El argumento 'data' debe ser un data.frame")
-  if (!target_var %in% colnames(data)) stop("El argumento 'target_var' debe ser una columna del data.frame")
+  stopifnot(is.data.frame(data), target_var %in% colnames(data))
   
   print("Columnas iniciales:")
   print(colnames(data))
@@ -178,7 +179,7 @@ GridSearchCV <- function(data, target_var, parameters, n_folds = 3, scoring = c(
   print("Columnas después de convertir caracteres a factores:")
   print(colnames(data))
   
-  # Identificar y mostrar filas con valores faltantes
+  # Identificar y mostrar columnas con valores faltantes
   na_columns <- colnames(data)[colSums(is.na(data)) > 0]
   if (length(na_columns) > 0) {
     cat("Columnas con valores faltantes que serán eliminadas:\n")
@@ -193,10 +194,8 @@ GridSearchCV <- function(data, target_var, parameters, n_folds = 3, scoring = c(
   print("Columnas después de eliminar filas con valores faltantes:")
   print(colnames(data))
   
-  # Verificar la presencia de valores faltantes
-  if (any(colSums(is.na(data)) > 0)) {
-    stop("Aún hay valores faltantes en los datos después de eliminar filas con NA")
-  }
+  # Verificar que no queden valores faltantes
+  stopifnot(!any(colSums(is.na(data)) > 0))
   
   # Identificar y mostrar columnas con un solo nivel
   single_level_columns <- colnames(data)[sapply(data, function(col) nlevels(as.factor(col))) <= 1]
@@ -207,17 +206,16 @@ GridSearchCV <- function(data, target_var, parameters, n_folds = 3, scoring = c(
     cat("No hay columnas con un solo nivel.\n")
   }
   
-  # Eliminar columnas con un solo nivel (un valor único)
+  # Eliminar columnas con un solo nivel
   data <- data %>% select_if(~ nlevels(.) > 1)
   
   print("Columnas después de eliminar columnas con un solo nivel:")
   print(colnames(data))
   
-  
-   # Eliminar niveles vacíos en la variable target
+  # Eliminar niveles vacíos en la variable target
   data[[target_var]] <- droplevels(data[[target_var]])
   
-   # Convertir niveles de factores a nombres válidos de R
+  # Convertir niveles de factores a nombres válidos de R si es clasificación
   if (is_classification) {
     data[[target_var]] <- make.names.factor(data[[target_var]])
   }
@@ -225,8 +223,14 @@ GridSearchCV <- function(data, target_var, parameters, n_folds = 3, scoring = c(
   # Verificar nuevamente la presencia de la columna target
   if (!target_var %in% colnames(data)) stop(paste("La columna", target_var, "no se encuentra en los datos después de eliminar columnas con un solo nivel"))
   
-  # Definir la función de resumen
-  summary_function <- if (is_classification) twoClassSummary else defaultSummary
+  # Definir la función de resumen y verificar métricas
+  if (is_classification) {
+    summary_function <- twoClassSummary
+    stopifnot(all(scoring %in% c("Accuracy", "ROC", "AUC", "F1", "Precision", "Recall")))
+  } else {
+    summary_function <- defaultSummary
+    stopifnot(all(scoring %in% c("RMSE", "MAE", "MSE", "R2")))
+  }
   
   # Definir el control para el entrenamiento
   train_control <- trainControl(
@@ -280,9 +284,14 @@ parameters <- list(
   min_child_weight = c(1, 3, 5)
 )
 
+# Llamar a la función GridSearchCV con métricas de regresión
+result <- GridSearchCV(data, "marca", parameters, n_folds = 5, scoring = c("Accuracy", "ROC"))
 
+#result <- GridSearchCV(data, "marca", parameters, n_folds = 5, scoring = c("RMSE", "MAE"))
 
-result <- GridSearchCV(data, "marca", parameters, n_folds = 5, scoring = "RMSE")
+# Imprimir los mejores hiperparámetros para cada métrica
+print(result$RMSE$best_parameters)
+print(result$MAE$best_parameters)
 ```
 
 
