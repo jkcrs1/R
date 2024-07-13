@@ -2,7 +2,7 @@
 ---
 title: "Evaluacion 2"
 author: "Jorge Cáceres Barrales"
-date: "2024-07-09"
+date: "2024-07-11"
 output:
   html_document: default
   pdf_document: default
@@ -23,11 +23,7 @@ library(caret)
 library(xgboost)
 library(data.table)
 library(dplyr)
-
 library(stringr)
-library(corrplot)
-
-
 ```
 
 ## Cargas funciones y base de datos
@@ -36,10 +32,8 @@ Se cargan funciones específicas desde un archivo de GitHub y los datos de permi
 # Enlace raw al archivo de funciones en GitHub
 source("https://raw.githubusercontent.com/jkcrs1/R/main/funciones.R")
 
-# Permisos circulación  pagados en la municipalidad de calbuco
+# Cargar los datos de permisos de circulación desde un CSV en GitHub
 url3 <- "https://github.com/jkcrs1/R/raw/main/permiso_circulacion_calbuco.csv"
-
-# Prueba con diferentes codificaciones
 data <- read.csv(url3, sep = ";", fileEncoding = "ISO-8859-1")
 
 ```
@@ -55,7 +49,7 @@ data <- data.frame(data)
 # Cambio de nombres de columnas: reemplazar puntos por guiones bajos y convertir a minúsculas
 colnames(data) <- colnames(data) %>% str_replace_all("\\.", "_") %>% tolower()
 
-# Mapas de recodificación
+# Mapas de recodificación para variables categóricas
 tipo_vehiculo_mapeo <- c(
   "AMBULANCIA" = "AMBULANCIA", "AUTOMOVIL" = "AUTOMOVIL", "BUS" = "BUS",
   "Cabriolet" = "AUTOMOVIL", "CAMION" = "CAMION", "CAMIONETA" = "CAMIONETA",
@@ -103,7 +97,7 @@ data <- data %>%
     
     # Quitar las "," y "." de los campos de valores 
     across(c(valor_neto, valor_ipc, valor_multa, valor_pagado), 
-                ~ as.numeric(gsub("[,\\.]", "", .))),
+           ~ as.numeric(gsub("[,\\.]", "", .))),
     
     # Convertir tipos de datos
     ano_vehiculo = as.integer(ano_vehiculo),
@@ -120,8 +114,6 @@ data <- data %>%
 
 # Mostrar la cantidad de registros válidos
 cat("La cantidad de registros válidos:", nrow(data), "\n")
-
-
 ```
 
 ## Traformación de variables categoricas a Factor
@@ -129,8 +121,7 @@ cat("La cantidad de registros válidos:", nrow(data), "\n")
 Las variables categóricas se transforman a factores para asegurar un análisis adecuado.
 
 ```{r}
-
-# Transformar las variables a factor con los niveles definidos
+#Transformación de variables categóricas a factores
 data <- data %>%
   mutate(across(where(is.character), as.factor),
          fecha = as.Date(paste(ano_pago, mes_pago, "01", sep = "-"), format = "%Y-%m-%d"),
@@ -139,15 +130,48 @@ data <- data %>%
   mutate(ano_mes_pago = factor(ano_mes_pago, levels = unique(ano_mes_pago))) %>%
   select(-fecha)
 
+# Reemplazar valores nulos por la mediana
 data <- data %>%
   mutate(across(everything(), reemplazar_por_mediana))
 
+# Droplevels para la variable marca
 data$marca <- factor(data$marca)
 data$marca <- droplevels(data$marca)
 
 ```
 
 
+#Preparacion Dataset
+
+
+```{r}
+data <- data %>%
+  select(grupo_vehiculo, ano_vehiculo, tipo_de_pago, fecha_pago, ano_pago, mes_pago, 
+         ano_mes_pago, valor_neto, valor_ipc, valor_multa, valor_pagado, forma_pago, tipo_vehiculo, marca)
+
+# Filtrar los datos para incluir solo automóviles y camionetas
+data <- data %>% filter(tipo_vehiculo == "Automovil" | tipo_vehiculo == "Camioneta")
+
+# Eliminar outliers
+resultado1 <- eliminar_outliers(data, "valor_pagado")
+data <- resultado1$dataset_sin_outliers
+```
+
+
+# Balanceo de datos
+```{r}
+set.seed(123)
+tamano_muestra <- min(data %>% count(tipo_vehiculo) %>% pull(n))
+
+# Muestreo estratificado para asegurar la misma cantidad de datos por categoría
+data <- data %>%
+  group_by(tipo_vehiculo) %>%
+  sample_n(tamano_muestra) %>%
+  ungroup()
+
+# Visualización de la distribución del tipo de vehículo
+grafico_torta(data, "tipo_vehiculo")
+```
 
 
 # Funcion de Búsqueda de Hiperparametro
@@ -161,137 +185,130 @@ make.names.factor <- function(f) {
 
 
 ```{r}
-# Definir la función GridSearchCV
-
-GridSearchCV <- function(data, target_var, parameters, n_folds = 3, scoring) {
-  # Validar los argumentos
-  stopifnot(is.data.frame(data), target_var %in% colnames(data))
-  
-  print("Columnas iniciales:")
-  print(colnames(data))
-  
-  # Determinar si es un problema de clasificación o regresión
-  is_classification <- is.factor(data[[target_var]])
-  
-  # Preparar los datos para caret
-  data <- data %>% mutate(across(where(is.character), as.factor))
-  
-  print("Columnas después de convertir caracteres a factores:")
-  print(colnames(data))
-  
-  # Identificar y mostrar columnas con valores faltantes
-  na_columns <- colnames(data)[colSums(is.na(data)) > 0]
-  if (length(na_columns) > 0) {
-    cat("Columnas con valores faltantes que serán eliminadas:\n")
-    print(na_columns)
-  } else {
-    cat("No hay columnas con valores faltantes.\n")
-  }
-  
-  # Eliminar filas con valores faltantes
-  data <- na.omit(data)
-  
-  print("Columnas después de eliminar filas con valores faltantes:")
-  print(colnames(data))
-  
-  # Verificar que no queden valores faltantes
-  stopifnot(!any(colSums(is.na(data)) > 0))
-  
-  # Identificar y mostrar columnas con un solo nivel
-  single_level_columns <- colnames(data)[sapply(data, function(col) nlevels(as.factor(col))) <= 1]
-  if (length(single_level_columns) > 0) {
-    cat("Columnas con un solo nivel que serán eliminadas:\n")
-    print(single_level_columns)
-  } else {
-    cat("No hay columnas con un solo nivel.\n")
-  }
-  
-  # Eliminar columnas con un solo nivel
-  data <- data %>% select_if(~ nlevels(.) > 1)
-  
-  print("Columnas después de eliminar columnas con un solo nivel:")
-  print(colnames(data))
-  
-  # Eliminar niveles vacíos en la variable target
-  data[[target_var]] <- droplevels(data[[target_var]])
-  
-  # Convertir niveles de factores a nombres válidos de R si es clasificación
-  if (is_classification) {
-    data[[target_var]] <- make.names.factor(data[[target_var]])
-  }
-  
-  # Verificar nuevamente la presencia de la columna target
-  if (!target_var %in% colnames(data)) stop(paste("La columna", target_var, "no se encuentra en los datos después de eliminar columnas con un solo nivel"))
-  
-  # Definir la función de resumen y verificar métricas
-  if (is_classification) {
-    summary_function <- twoClassSummary
-    stopifnot(all(scoring %in% c("Accuracy", "ROC", "AUC", "F1", "Precision", "Recall")))
-  } else {
-    summary_function <- defaultSummary
-    stopifnot(all(scoring %in% c("RMSE", "MAE", "MSE", "R2")))
-  }
-  
-  # Definir el control para el entrenamiento
-  train_control <- trainControl(
-    method = "cv", 
-    number = n_folds, 
-    summaryFunction = summary_function, 
-    verboseIter = TRUE,
-    classProbs = is_classification,  # Activar probabilidades para clasificación
-    savePredictions = "final"
-  )
-  
-  # Definir la rejilla de hiperparámetros
+# Función para búsqueda de hiperparámetros usando la API de xgboost
+GridSearchCV_xgboost <- function(parameters, n_folds, scoring, data, target) {
+  # Crear el grid de hiperparámetros
   grid <- expand.grid(parameters)
-  
-  # Inicializar una lista para almacenar los resultados de cada métrica
   results <- list()
   
-  # Entrenar el modelo usando caret para cada métrica
-  for (metric in scoring) {
-    model <- train(
-      as.formula(paste(target_var, "~ .")),
-      data = data,
-      method = "xgbTree",
-      trControl = train_control,
-      tuneGrid = grid,
-      metric = metric
-    )
+  # Preparar los datos para xgboost
+  dtrain <- xgb.DMatrix(data = as.matrix(data %>% select(-all_of(target))), label = data[[target]])
+  
+  # Realizar cross-validation para cada combinación de hiperparámetros
+  for (i in 1:nrow(grid)) {
+    params <- grid[i, ]
+    param_list <- as.list(params)
+    nrounds <- param_list$nrounds
+    param_list$nrounds <- NULL
     
-    # Obtener los mejores hiperparámetros para la métrica actual
-    best_model <- model$bestTune
-    results[[metric]] <- list(model = model, best_parameters = best_model)
+    cv <- xgb.cv(params = param_list, 
+                 data = dtrain, 
+                 nfold = n_folds, 
+                 nrounds = nrounds, 
+                 metrics = list(scoring), 
+                 verbose = FALSE, 
+                 early_stopping_rounds = 10, 
+                 maximize = ifelse(scoring == "rmse", FALSE, TRUE))
+    
+    # Verificar si el resultado de la métrica existe en evaluation_log
+    metric_name <- paste("test", scoring, "mean", sep = "-")
+    if (!is.null(cv$evaluation_log[[metric_name]])) {
+      best_score <- min(cv$evaluation_log[[metric_name]])
+      results[[i]] <- list(params = param_list, score = best_score)
+    } else {
+      warning(paste("Métrica no encontrada:", metric_name))
+    }
   }
   
-  # Retornar los resultados para todas las métricas
-  return(results)
+  # Encontrar la mejor combinación de hiperparámetros
+  if (length(results) > 0) {
+    best_result <- results[[which.min(sapply(results, function(x) x$score))]]
+    return(best_result)
+  } else {
+    stop("No se encontraron resultados válidos durante la validación cruzada.")
+  }
 }
 
+
+# Función para búsqueda de hiperparámetros usando caret y random forest
+GridSearchCV_RF <- function(parameters, n_folds, scoring, data, target) {
+  # Crear el grid de hiperparámetros
+  grid <- expand.grid(parameters)
+  
+  # Definir control de entrenamiento para validación cruzada
+  train_control <- trainControl(method = "cv", number = n_folds, summaryFunction = defaultSummary)
+  
+  # Realizar la búsqueda de hiperparámetros con caret y random forest
+  model <- train(as.formula(paste(target, "~ .")),
+                 data = data,
+                 method = "rf",
+                 trControl = train_control,
+                 tuneGrid = grid,
+                 metric = scoring,
+                 verbose = FALSE)
+  
+  # Obtener los mejores parámetros
+  best_result <- list(params = model$bestTune, score = max(model$results[[scoring]]))
+  
+  return(best_result)
+}
+
+
+```
+
+
+```{r}
+# Definir los hiperparámetros a tunear para random forest
+parameters_rf <- list(
+  mtry = c(2, 3, 4)       # Número de variables seleccionadas al azar en cada división
+)
+
+# Aplicar la búsqueda de hiperparámetros con Random Forest
+best_model_rf <- GridSearchCV_RF(
+  parameters = parameters_rf,
+  n_folds = 3,
+  scoring = "RMSE",
+  data = data_xgb,
+  target = "valor_pagado"
+)
+
+# Mostrar los mejores hiperparámetros y la puntuación correspondiente
+print(best_model_rf)
 ```
 
 
 
 
-
 ```{r}
-parameters <- list(
-  nrounds = c(10, 50, 100),
-  max_depth = c(3, 6, 9),
-  eta = c(0.1, 0.01, 0.05),
-  gamma = c(0, 0.1, 0.2),
-  colsample_bytree = c(0.5, 0.7, 1),
-  min_child_weight = c(1, 3, 5)
+# Definir los hiperparámetros a tunear para xgboost
+parameters_xgb <- list(
+  nrounds = c(50, 100),
+  max_depth = c(3, 6),
+  eta = c(0.1, 0.3),
+  gamma = c(0, 1),
+  colsample_bytree = c(0.5, 0.7),
+  min_child_weight = c(1, 3),
+  subsample = c(0.6, 0.8)
 )
 
-# Llamar a la función GridSearchCV con métricas de regresión
-result <- GridSearchCV(data, "marca", parameters, n_folds = 5, scoring = c("Accuracy", "ROC"))
+# Preparar los datos para xgboost
+data_xgb <- data %>%
+  mutate(across(where(is.factor), as.numeric)) %>%
+  select(-tipo_vehiculo, -fecha_pago)
 
-#result <- GridSearchCV(data, "marca", parameters, n_folds = 5, scoring = c("RMSE", "MAE"))
+# Aplicar la búsqueda de hiperparámetros con xgboost
+best_model_xgb <- GridSearchCV_xgboost(
+  parameters = parameters_xgb,
+  n_folds = 3,
+  scoring = "rmse",        # Métrica de evaluación (Root Mean Squared Error)
+  data = data_xgb,
+  target = "valor_pagado"
+)
 
-# Imprimir los mejores hiperparámetros para cada métrica
-print(result$RMSE$best_parameters)
-print(result$MAE$best_parameters)
+# Mostrar los mejores hiperparámetros y la puntuación correspondiente
+print(best_model_xgb)
+
+
 ```
 
 
