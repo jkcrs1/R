@@ -22,13 +22,14 @@ En este proyecto, desarrollaremos una función en R que utilice la librería `ca
 
 ```{r}
 # Cargar librerías necesarias
-library(caret)
-library(xgboost)
-library(data.table)
-library(dplyr)
-library(stringr)
-library(testthat)
-library(tidyverse)
+library(caret)         # Para el preprocesamiento y modelado de datos
+library(xgboost)       # Para la implementación del algoritmo de boosting
+library(data.table)    # Para la manipulación rápida de datos
+library(dplyr)         # Para la manipulación de datos con el uso de pipes
+library(stringr)       # Para manipulación de cadenas
+library(testthat)      # Para realizar tests unitarios
+library(tidyverse)     # Colección de paquetes para manipulación y visualización de datos
+
 
 ```
 
@@ -88,6 +89,7 @@ required_cols <- c("valor_pagado", "fecha_pago")
 ## Funcion para normalizar datos
 
 ```{r}
+# Función para normalizar datos
 normalizar_data <- function(data, 
                             cat_col_mappings = list(), 
                             cat_cols = c(),
@@ -114,33 +116,33 @@ normalizar_data <- function(data,
   # Recodificar las variables categóricas según los mapeos proporcionados
   for (col in names(cat_col_mappings)) {
     if (col %in% colnames(data) && !is.null(data[[col]])) {
-      data[[col]] <- dplyr::recode(data[[col]], !!!cat_col_mappings[[col]])
+      data[[col]] <- dplyr::recode(data[[col]], !!!cat_col_mappings[[col]]) # dplyr::recode para recodificar
     }
   }
   
   # Reemplazar nulos en todas las variables numéricas si replace_nas es TRUE
   if (replace_nas) {
     data <- data %>%
-      dplyr::mutate(dplyr::across(where(is.numeric), ~ replace_na(., median(., na.rm = TRUE))))
+      dplyr::mutate(dplyr::across(where(is.numeric), ~ replace_na(., median(., na.rm = TRUE)))) # dplyr::mutate y dplyr::across para transformación
   }
   
   # Convertir a título en variables específicas
   if (length(title_cols) > 0) {
     data <- data %>%
-      dplyr::mutate(dplyr::across(all_of(title_cols), stringr::str_to_title))
+      dplyr::mutate(dplyr::across(all_of(title_cols), stringr::str_to_title)) # dplyr::mutate y stringr::str_to_title para conversión a título
   }
   
   # Quitar las "," y "." de los campos de valores y convertir a numérico
   if (length(numeric_cols) > 0) {
     data <- data %>%
-      dplyr::mutate(dplyr::across(all_of(numeric_cols), ~ as.numeric(gsub("[,\\.]", "", .))))
+      dplyr::mutate(dplyr::across(all_of(numeric_cols), ~ as.numeric(gsub("[,\\.]", "", .)))) # dplyr::mutate y gsub para limpieza y conversión
   }
   
   # Convertir columnas de fecha
   if (length(date_cols) > 0) {
     for (col in date_cols) {
       if (col %in% colnames(data) && !is.null(data[[col]])) {
-        data[[col]] <- as.Date(data[[col]], format = date_format)
+        data[[col]] <- as.Date(data[[col]], format = date_format) # base::as.Date para conversión de fechas
       }
     }
     
@@ -148,9 +150,9 @@ normalizar_data <- function(data,
     if (date_cols[1] %in% colnames(data)) {
       data <- data %>%
         dplyr::mutate(
-          ano_pago = lubridate::year(data[[date_cols[1]]]),
-          mes_pago = lubridate::month(data[[date_cols[1]]]),
-          ano_mes_pago = paste(sprintf("%02d", mes_pago), substr(ano_pago, 3, 4), sep = "-")
+          ano_pago = lubridate::year(data[[date_cols[1]]]), # lubridate::year para extraer año
+          mes_pago = lubridate::month(data[[date_cols[1]]]), # lubridate::month para extraer mes
+          ano_mes_pago = paste(sprintf("%02d", mes_pago), substr(ano_pago, 3, 4), sep = "-") # base::paste y base::sprintf para formateo
         )
     }
   }
@@ -160,7 +162,7 @@ normalizar_data <- function(data,
     if (col %in% colnames(data)) {
       data <- data %>%
         dplyr::filter(!is.na(data[[col]]) & data[[col]] > 0) %>%
-        dplyr::distinct()
+        dplyr::distinct() # dplyr::filter y dplyr::distinct para filtrar y eliminar duplicados
     }
   }
 
@@ -175,7 +177,7 @@ normalizar_data <- function(data,
   if (length(cat_cols) > 0) {
     for (col in cat_cols) {
       if (col %in% colnames(data)) {
-        data[[paste0(col, "_factor")]] <- as.numeric(as.factor(data[[col]]))
+        data[[paste0(col, "_factor")]] <- as.numeric(as.factor(data[[col]])) # base::as.numeric y base::as.factor para conversión
       }
     }
   }
@@ -215,7 +217,16 @@ normalizar_data <- function(data,
   # Mostrar el tiempo de ejecución
   cat("Tiempo de ejecución:", duracion, "segundos\n")
   
-  return(data)
+  resultado <- list(data = data, duracion = duracion)
+  class(resultado) <- "normalizacion_resultado"
+  return(resultado)
+}
+
+# Método para imprimir la clase S3
+print.normalizacion_resultado <- function(x) {
+  cat("Datos normalizados:\n")
+  print(head(x$data))
+  cat("\nDuración de la normalización:", x$duracion, "segundos\n")
 }
 ```
 
@@ -227,13 +238,13 @@ Las variables categóricas se transforman a factores para asegurar un análisis 
 
 ```{r}
 # Aplicar la función al dataset
-data <- normalizar_data(data_carga, 
-                                    cat_col_mappings, 
-                                    cat_cols,
-                                    date_cols,
-                                    numeric_cols,
-                                    nombre_cols,
-                                    target_col)
+resultado_normalizacion <- normalizar_data(data_carga, 
+                                           cat_col_mappings, 
+                                           cat_cols,
+                                           date_cols,
+                                           numeric_cols,
+                                           nombre_cols,
+                                           target_col)
 
 ```
 
@@ -242,16 +253,20 @@ data <- normalizar_data(data_carga,
 
 
 ```{r}
-data <- data %>%
-  dplyr::select(grupo_vehiculo, grupo_vehiculo_factor, ano_vehiculo, tipo_de_pago, fecha_pago, ano_pago, mes_pago, 
-                ano_mes_pago, valor_neto, valor_ipc, valor_multa, valor_pagado, forma_pago, forma_pago_factor, tipo_vehiculo, tipo_vehiculo_factor, marca, marca_factor)
+
+
+# Extraer el data frame normalizado
+data <- resultado_normalizacion$data
 
 # Filtrar los datos para incluir solo automóviles y camionetas
 data <- data %>% dplyr::filter(tipo_vehiculo == "Automovil" | tipo_vehiculo == "Camioneta")
 
-# Eliminar outliers
-resultado1 <- eliminar_outliers(data, "valor_pagado")
-data <- resultado1$dataset_sin_outliers
+# Continuar con la preparación del dataset
+data <- data %>%
+  dplyr::select(grupo_vehiculo, grupo_vehiculo_factor, ano_vehiculo, tipo_de_pago, fecha_pago, ano_pago, mes_pago, 
+                ano_mes_pago, valor_neto, valor_ipc, valor_multa, valor_pagado, forma_pago, forma_pago_factor, 
+                tipo_vehiculo, tipo_vehiculo_factor, marca, marca_factor)
+
 
 ```
 
@@ -276,7 +291,6 @@ grafico_torta(data, "tipo_vehiculo")
 ## Funcion de Búsqueda de Hiperparametro
 
 ```{r}
-
 # Función para búsqueda de hiperparámetros usando la API de xgboost
 GridSearchCV_xgboost <- function(parameters, scoring, data, target) {
   
@@ -322,7 +336,6 @@ GridSearchCV_xgboost <- function(parameters, scoring, data, target) {
   # Encontrar la mejor combinación de hiperparámetros
   if (length(results) > 0) {
     best_result <- results[[which.min(sapply(results, function(x) x$score))]]
-    return(best_result)
   } else {
     stop("No se encontraron resultados válidos durante la validación cruzada.")
   }
@@ -330,9 +343,21 @@ GridSearchCV_xgboost <- function(parameters, scoring, data, target) {
   hora_fin <- Sys.time()
   duracion <- hora_fin - hora_inicio
   
-  # Mostrar el tiempo de ejecución
-  cat("Tiempo de ejecución:", duracion, "segundos\n")
+  # Crear la lista de resultados con clase S3
+  resultado <- list(best_result = best_result, duracion = duracion)
+  class(resultado) <- "grid_search_result"
+  return(resultado)
 }
+
+# Método para imprimir la clase S3
+print.grid_search_result <- function(x) {
+  cat("Mejores hiperparámetros:\n")
+  print(x$best_result$params)
+  cat("\nPuntuación:\n")
+  print(x$best_result$score)
+  cat("\nDuración de la búsqueda de hiperparámetros:", x$duracion, "segundos\n")
+}
+
 
 
 ```
@@ -368,6 +393,164 @@ best_model <- GridSearchCV_xgboost(
 # Mostrar los mejores hiperparámetros y la puntuación correspondiente
 print(best_model)
 
+
+```
+# Testing de funcion usando testthat
+
+## Test de GridSearchCV
+
+```{r}
+# Prueba de la función GridSearchCV 
+test_that("GridSearchCV funciona correctamente", {
+  
+  url3 <- "https://github.com/jkcrs1/R/raw/main/permiso_circulacion_calbuco.csv"
+  
+  data_test <- data.table::fread(url3, sep = ";", encoding = "Latin-1")
+  
+  cat_col_mappings <- list(
+    tipo_vehiculo = c(
+      "AMBULANCIA" = "AMBULANCIA", "AUTOMOVIL" = "AUTOMOVIL", "BUS" = "BUS",
+      "Cabriolet" = "AUTOMOVIL", "CAMION" = "CAMION", "CAMIONETA" = "CAMIONETA",
+      "CARRO ARRASTRE A" = "REMOLQUE", "CARRO BOMBA" = "CARRO BOMBA",
+      "CASA RODANTE" = "CASA RODANTE", "Comercial" = "COMERCIAL", "CUATRIMOTO" = "CUATRIMOTO",
+      "FURGON" = "FURGON", "GRUA" = "MAQUINA PESADA", "Hatchback" = "AUTOMOVIL",
+      "JEEP" = "AUTOMOVIL", "MAQUINA INDUSTRIAL" = "MAQUINA INDUSTRIAL",
+      "MINIBUS" = "MINIBUS", "MINIBUS ESCOLAR" = "MINIBUS", "MINIBUS PARTICULAR" = "MINIBUS",
+      "MINIBUS PRIVADO" = "MINIBUS", "MINIBUS TURISMO" = "MINIBUS", "MOTO" = "MOTOCICLETA",
+      "MOTOCICLETA" = "MOTOCICLETA", "OTROS" = "OTROS", "REMOLQUE A" = "REMOLQUE",
+      "REMOLQUE B" = "REMOLQUE", "RETROEXCAVADORA" = "MAQUINA PESADA", "Sedan" = "AUTOMOVIL",
+      "SEMI REMOLQUE" = "REMOLQUE", "STATION WAGON" = "AUTOMOVIL", "SUV" = "SUV",
+      "TAXI EJECUTIVO" = "TAXI", "TAXI BASICO" = "TAXI", "TAXI COLECTIVO" = "TAXI",
+      "TRACTOCAMION" = "CAMION", "TRACTOR" = "TRACTOR", "VAN" = "VAN"
+    ),
+    tipo_combustible = c(
+      "Benc" = "Bencina", "Dies" = "Diesel", "NULL" = "NULL",
+      "DUAL" = "Hibrido", "Hibr" = "Hibrido", "Elec" = "Electrico"
+    ),
+    transmision = c(
+      "Mec" = "Mecanica", "Aut" = "Automatica", "NULL" = "NULL",
+      "CVT" = "Automatica", "DCT" = "Automatica"
+    )
+  )
+  
+  cat_cols <- c("grupo_vehiculo","tipo_vehiculo", "tipo_combustible", "transmision", "marca", "forma_pago")
+  date_cols <- c("fecha_pago")
+  numeric_cols <- c("valor_neto", "valor_ipc", "valor_multa", "valor_pagado")
+  nombre_cols <- c("municipalidad", "grupo_vehiculo", "placa", "digito", "codigo_sii", "forma_pago", "tipo_vehiculo", "marca", "modelo", "color", "transmision", "tipo_combustible", "equipamiento")
+  target_col <- "valor_pagado"
+  required_cols <- c("valor_pagado", "fecha_pago")
+  
+  
+  # Normalizar y transformar el dataset
+  data_test <- normalizar_data(data_test, 
+                               cat_col_mappings, 
+                               cat_cols,
+                               date_cols,
+                               numeric_cols,
+                               nombre_cols,
+                               target_col,
+                               required_cols)
+  data_test <- data_test %>%
+    dplyr::mutate(dplyr::across(where(is.factor), as.numeric)) %>%
+    dplyr::select(-tipo_vehiculo, -fecha_pago)
+  
+  
+  
+  parameters <- list(
+    nrounds = c(50, 100),
+    max_depth = c(3, 6),
+    eta = c(0.1, 0.01)
+  )
+  
+ resultado <- GridSearchCV_xgboost(parameters, "rmse", data_test, "valor_pagado")
+  
+  # Capturar la salida de la función GridSearchCV_xgboost
+  salida <- capture_output({
+    print(resultado)
+  })
+  
+  # Verificar que la salida es de clase grid_search_result
+  expect_s3_class(resultado, "grid_search_result")
+  
+  # Verificar que las transformaciones se realizaron correctamente
+  expect_true(is.list(resultado$best_result))
+  expect_true("params" %in% names(resultado$best_result))
+  expect_true("score" %in% names(resultado$best_result))
+  
+  # Verificar que el tiempo de ejecución se muestra en la salida
+  expect_match(salida, "Duración de la búsqueda de hiperparámetros:")
+})
+  
+
+```
+## Test de normalizar_data
+
+```{r}
+test_that("normalizar_data funciona correctamente con datos reales", {
+  data_url <- "https://github.com/jkcrs1/R/raw/main/permiso_circulacion_calbuco.csv"
+  data_test <- data.table::fread(data_url, sep = ";", encoding = "Latin-1")
+  
+  cat_col_mappings <- list(
+    tipo_vehiculo = c(
+      "AMBULANCIA" = "AMBULANCIA", "AUTOMOVIL" = "AUTOMOVIL", "BUS" = "BUS",
+      "Cabriolet" = "AUTOMOVIL", "CAMION" = "CAMION", "CAMIONETA" = "CAMIONETA",
+      "CARRO ARRASTRE A" = "REMOLQUE", "CARRO BOMBA" = "CARRO BOMBA",
+      "CASA RODANTE" = "CASA RODANTE", "Comercial" = "COMERCIAL", "CUATRIMOTO" = "CUATRIMOTO",
+      "FURGON" = "FURGON", "GRUA" = "MAQUINA PESADA", "Hatchback" = "AUTOMOVIL",
+      "JEEP" = "AUTOMOVIL", "MAQUINA INDUSTRIAL" = "MAQUINA INDUSTRIAL",
+      "MINIBUS" = "MINIBUS", "MINIBUS ESCOLAR" = "MINIBUS", "MINIBUS PARTICULAR" = "MINIBUS",
+      "MINIBUS PRIVADO" = "MINIBUS", "MINIBUS TURISMO" = "MINIBUS", "MOTO" = "MOTOCICLETA",
+      "MOTOCICLETA" = "MOTOCICLETA", "OTROS" = "OTROS", "REMOLQUE A" = "REMOLQUE",
+      "REMOLQUE B" = "REMOLQUE", "RETROEXCAVADORA" = "MAQUINA PESADA", "Sedan" = "AUTOMOVIL",
+      "SEMI REMOLQUE" = "REMOLQUE", "STATION WAGON" = "AUTOMOVIL", "SUV" = "SUV",
+      "TAXI EJECUTIVO" = "TAXI", "TAXI BASICO" = "TAXI", "TAXI COLECTIVO" = "TAXI",
+      "TRACTOCAMION" = "CAMION", "TRACTOR" = "TRACTOR", "VAN" = "VAN"
+    ),
+    tipo_combustible = c(
+      "Benc" = "Bencina", "Dies" = "Diesel", "NULL" = "NULL",
+      "DUAL" = "Hibrido", "Hibr" = "Hibrido", "Elec" = "Electrico"
+    ),
+    transmision = c(
+      "Mec" = "Mecanica", "Aut" = "Automatica", "NULL" = "NULL",
+      "CVT" = "Automatica", "DCT" = "Automatica"
+    )
+  )
+  
+  cat_cols <- c("tipo_vehiculo", "tipo_combustible", "transmision", "marca")
+  date_cols <- c("fecha_pago")
+  numeric_cols <- c("valor_neto", "valor_ipc", "valor_multa", "valor_pagado")
+  title_cols <- c("municipalidad", "grupo_vehiculo", "placa", "digito", "codigo_sii", "forma_pago", "tipo_vehiculo", "marca", "modelo", "color", "transmision", "tipo_combustible", "equipamiento")
+  target_col <- "valor_pagado"
+  required_cols <- c("valor_pagado", "fecha_pago")
+  
+  # Capturar la salida de la función normalizar_data
+  salida <- capture_output({
+    data_normalizada <- normalizar_data(data_test, 
+                                        cat_col_mappings, 
+                                        cat_cols,
+                                        date_cols,
+                                        numeric_cols,
+                                        title_cols,
+                                        target_col,
+                                        required_cols)
+  })
+  
+  # Verificar que las transformaciones se realizaron correctamente
+  expect_true("tipo_vehiculo_factor" %in% colnames(data_normalizada))
+  expect_true("tipo_combustible_factor" %in% colnames(data_normalizada))
+  expect_true("transmision_factor" %in% colnames(data_normalizada))
+  
+  expect_true(all(!is.na(data_normalizada$valor_pagado)))
+  expect_true(all(!is.na(data_normalizada$fecha_pago)))
+  
+  # Verificar que las columnas originales aún existen
+  expect_true("tipo_vehiculo" %in% colnames(data_normalizada))
+  expect_true("tipo_combustible" %in% colnames(data_normalizada))
+  expect_true("transmision" %in% colnames(data_normalizada))
+  
+  # Verificar que el tiempo de ejecución se muestra en la salida
+  expect_match(salida, "Tiempo de ejecución:")
+})
 
 ```
 
