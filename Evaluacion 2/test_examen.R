@@ -6,6 +6,8 @@ library(stringr)
 library(testthat)
 library(tidyverse)
 
+
+# Prueba de la función GridSearchCV 
 test_that("GridSearchCV funciona correctamente", {
   
   url3 <- "https://github.com/jkcrs1/R/raw/main/permiso_circulacion_calbuco.csv"
@@ -264,5 +266,4 @@ test_that("GridSearchCV funciona correctamente", {
   expect_true("score" %in% names(result))
 })
 
-# Ejecutar las pruebas
-test_dir("tests")
+
