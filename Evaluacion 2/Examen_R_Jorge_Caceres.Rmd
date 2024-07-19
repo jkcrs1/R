@@ -10,24 +10,21 @@ editor_options:
     wrap: sentence
 ---
 
-# Objetivo de Investigación
+Objetivo de Investigación
 
-El objetivo de esta investigación es desarrollar y validar funciones en R que permitan la búsqueda eficiente de hiperparámetros utilizando validación cruzada para múltiples algoritmos de aprendizaje automático.
-Además, se busca implementar una función para la normalización de datos que facilite la preparación de conjuntos de datos para el modelado, asegurando la calidad y consistencia de los mismos.
+El objetivo de esta investigación es desarrollar y validar funciones en R que permitan la búsqueda eficiente de hiperparámetros utilizando validación cruzada para múltiples algoritmos de aprendizaje automático. Además, se busca implementar una función para la normalización de datos que facilite la preparación de conjuntos de datos para el modelado, asegurando la calidad y consistencia de los mismos.
 
-# Introducción
+Introducción
 
-En el ámbito del aprendizaje automático, la optimización de hiperparámetros y la correcta preparación de los datos son esenciales para mejorar el rendimiento y la precisión de los modelos.
-En este proyecto, desarrollaremos una función en R que utiliza la librería `caret` para realizar búsquedas de hiperparámetros mediante validación cruzada, aplicada a diferentes algoritmos de aprendizaje automático.
-Adicionalmente, implementaremos una función de normalización de datos que manejará recodificación de variables categóricas, limpieza de datos y transformación de valores, utilizando principios y paquetes del ecosistema Tidyverse, técnicas de simulación de variables aleatorias, álgebra matricial y algoritmos de optimización.
+En el ámbito del aprendizaje automático, la optimización de hiperparámetros y la correcta preparación de los datos son esenciales para mejorar el rendimiento y la precisión de los modelos. En este proyecto, desarrollaremos una función en R que utiliza la librería caret para realizar búsquedas de hiperparámetros mediante validación cruzada, aplicada a diferentes algoritmos de aprendizaje automático. Adicionalmente, implementaremos una función de normalización de datos que manejará recodificación de variables categóricas, limpieza de datos y transformación de valores, utilizando principios y paquetes del ecosistema Tidyverse, técnicas de simulación de variables aleatorias, álgebra matricial y algoritmos de optimización.
 
-# Desarrollo
+Desarrollo
 
-## Carga de Librerías
+Carga de Librerías
 
 En este apartado se cargan todas las librerías necesarias para el desarrollo del proyecto, incluyendo librerías para la manipulación de datos, modelado y validación de modelos, así como para la implementación de tests unitarios.
 
-```{r}
+{r}
 # Cargar librerías necesarias
 library(caret)         # Para el preprocesamiento y modelado de datos
 library(xgboost)       # Para la implementación del algoritmo de boosting
@@ -38,14 +35,12 @@ library(testthat)      # Para realizar tests unitarios
 library(tidyverse)     # Colección de paquetes para manipulación y visualización de datos
 
 
-```
 
-## Carga de Funciones y Base de Datos
+Carga de Funciones y Base de Datos
 
-Se cargan funciones específicas desde un archivo alojado en GitHub y se descargan los datos de permisos de circulación en formato CSV también desde GitHub.
-Esto permite tener acceso a las funciones y datos necesarios para el análisis.
+Se cargan funciones específicas desde un archivo alojado en GitHub y se descargan los datos de permisos de circulación en formato CSV también desde GitHub. Esto permite tener acceso a las funciones y datos necesarios para el análisis.
 
-```{r}
+{r}
 # Enlace raw al archivo de funciones en GitHub
 source("https://raw.githubusercontent.com/jkcrs1/R/main/funciones.R")
 
@@ -53,13 +48,12 @@ source("https://raw.githubusercontent.com/jkcrs1/R/main/funciones.R")
 url3 <- "https://github.com/jkcrs1/R/raw/main/permiso_circulacion_calbuco.csv"
 data_carga <- read.csv(url3, sep = ";", fileEncoding = "ISO-8859-1")
 
-```
 
-## Normalización de las Variables
+Normalización de las Variables
 
 Se definen las mapeos y listas de columnas necesarias para la normalización de datos, incluyendo columnas categóricas, de fecha, numéricas y el objetivo, así como las columnas requeridas para asegurar la consistencia y limpieza de los datos.
 
-```{r}
+{r}
 cat_col_mappings <- list(
     tipo_vehiculo = c(
       "AMBULANCIA" = "AMBULANCIA", "AUTOMOVIL" = "AUTOMOVIL", 
@@ -100,15 +94,12 @@ nombre_cols <- c("municipalidad", "grupo_vehiculo", "placa",
 target_col <- "valor_pagado"
 required_cols <- c("valor_pagado", "fecha_pago")
 
-```
 
-## Funcion para normalizar datos
+Funcion para normalizar datos
 
-La función `normalizar_data` se encarga de transformar y limpiar los datos.
-Realiza la recodificación de variables categóricas, reemplaza valores nulos, convierte datos numéricos y de fecha, y filtra duplicados.
-Al final, retorna los datos normalizados junto con la duración del proceso en formato S3.
+La función normalizar_data se encarga de transformar y limpiar los datos. Realiza la recodificación de variables categóricas, reemplaza valores nulos, convierte datos numéricos y de fecha, y filtra duplicados. Al final, retorna los datos normalizados junto con la duración del proceso en formato S3.
 
-```{r}
+{r}
 normalizar_data <- function(data, 
                             cat_col_mappings = list(), 
                             cat_cols = c(),
@@ -269,14 +260,12 @@ print.normalizacion_resultado <- function(x) {
   cat("\nDuración de la normalización:", x$duracion, "\n")
 }
 
-```
 
-## Transformación de Variables Categóricas a Factor
+Normalizar Dataset
 
-Se aplica la función `normalizar_data` al conjunto de datos cargado previamente, utilizando las configuraciones de mapeo y columnas definidas.
-Esto normaliza y limpia los datos para su posterior análisis.
+Se aplica la función normalizar_data al conjunto de datos cargado previamente, utilizando las configuraciones de mapeo y columnas definidas. Esto normaliza y limpia los datos para su posterior análisis.
 
-```{r}
+{r}
 # Aplicar la función al dataset
 resultado_normalizacion <- normalizar_data(data_carga, 
                                            cat_col_mappings, 
@@ -286,14 +275,12 @@ resultado_normalizacion <- normalizar_data(data_carga,
                                            nombre_cols,
                                            target_col)
 
-```
 
-## Preparacion Dataset
+Preparacion Dataset
 
-Se realiza un balanceo del dataset utilizando muestreo estratificado para asegurar una distribución equitativa de los tipos de vehículos.
-Esto es importante para evitar sesgos en el modelo de aprendizaje automático.
+Se realiza un balanceo del dataset utilizando muestreo estratificado para asegurar una distribución equitativa de los tipos de vehículos. Esto es importante para evitar sesgos en el modelo de aprendizaje automático.
 
-```{r}
+{r}
 
 
 # Extraer el data frame normalizado
@@ -313,13 +300,12 @@ data <- data %>%
                 marca, marca_factor)
 
 
-```
 
-## Outliers
+Outliers
 
-Se aplica la función `eliminar_outliers` para eliminar valores atípicos en la columna `valor_pagado` del dataset.
+Se aplica la función eliminar_outliers para eliminar valores atípicos en la columna valor_pagado del dataset.
 
-```{r}
+{r}
 
 resultado <- eliminar_outliers(data, "valor_pagado")
 
@@ -329,13 +315,12 @@ cat("Número de registros originales:", nrow(data), "\n")
 cat("Número de registros sin outliers:", nrow(dataset_sin_outliers), "\n")
 
 data<- dataset_sin_outliers
-```
 
-## Balanceo de datos
+Balanceo de datos
 
 Se realiza un balanceo de datos para evitar el sobreajuste en el modelo.
 
-```{r}
+{r}
 set.seed(123)
 tamano_muestra <- min(data %>% count(tipo_vehiculo) %>% pull(n))
 
@@ -348,15 +333,19 @@ data <- data %>%
 # Visualización de la distribución del tipo de vehículo
 grafico_torta(data, "tipo_vehiculo")
 
-```
 
-## Funcion de Búsqueda de Hiperparametro
+Variable Objetivo
 
-La función `GridSearchCV_xgboost` realiza una búsqueda de hiperparámetros utilizando validación cruzada para el algoritmo XGBoost.
-Calcula dinámicamente el número de folds, evalúa múltiples combinaciones de hiperparámetros y retorna los mejores parámetros encontrados junto con la duración del proceso.
-La función utiliza una estructura S3 para manejar los resultados de manera flexible y estructurada.
+Se usa la función grafico_boxplot para representar gráficamente la distribución de valor_pagado, incluyendo la mediana, los cuartiles, y los valores máximos y mínimos, permitiendo una comprensión clara de la dispersión y centralización de los datos.
 
-```{r}
+{r}
+grafico_boxplot(data, "valor_pagado","Valor Pagado")
+
+Funcion de Búsqueda de Hiperparametro
+
+La función GridSearchCV_xgboost realiza una búsqueda de hiperparámetros utilizando validación cruzada para el algoritmo XGBoost. Calcula dinámicamente el número de folds, evalúa múltiples combinaciones de hiperparámetros y retorna los mejores parámetros encontrados junto con la duración del proceso. La función utiliza una estructura S3 para manejar los resultados de manera flexible y estructurada.
+
+{r}
 GridSearchCV_xgboost <- function(parameters, scoring, data, target) {
   
   # Marcar el inicio del tiempo de ejecución
@@ -429,22 +418,12 @@ print.grid_search_result <- function(x) {
 }
 
 
-```
 
-## Variable Objetivo
+Aplicación de la Función
 
-Se usa la función `grafico_boxplot` para representar gráficamente la distribución de `valor_pagado`, incluyendo la mediana, los cuartiles, y los valores máximos y mínimos, permitiendo una comprensión clara de la dispersión y centralización de los datos.
+Se define un grid de hiperparámetros para XGBoost y se preparan los datos. Luego, se aplica la función GridSearchCV_xgboost para encontrar los mejores hiperparámetros y se imprimen los resultados, incluyendo los parámetros óptimos y la puntuación del modelo.
 
-```{r}
-grafico_boxplot(data, "valor_pagado","Valor Pagado")
-```
-
-## Aplicación de la Función
-
-Se define un grid de hiperparámetros para XGBoost y se preparan los datos.
-Luego, se aplica la función `GridSearchCV_xgboost` para encontrar los mejores hiperparámetros y se imprimen los resultados, incluyendo los parámetros óptimos y la puntuación del modelo.
-
-```{r}
+{r}
 # Definir los hiperparámetros a tunear para xgboost
 parameters <- list(
   nrounds = c(50, 100),
@@ -473,47 +452,36 @@ best_model <- GridSearchCV_xgboost(
 print(best_model)
 
 
-```
 
-## Interpretacion del Resultado de la funcion
+Interpretacion del Resultado de la funcion
 
-**Mejores Hiperparámetros Determinados**:
+Mejores Hiperparámetros Determinados:
 
--   **max_depth**: El valor óptimo encontrado fue 6, indicando que cada árbol en el modelo tiene una profundidad máxima de 6 niveles.
-    Este nivel de profundidad permite al modelo capturar suficiente complejidad en los datos sin sobreajustarse.
+max_depth: El valor óptimo encontrado fue 6, indicando que cada árbol en el modelo tiene una profundidad máxima de 6 niveles. Este nivel de profundidad permite al modelo capturar suficiente complejidad en los datos sin sobreajustarse.
 
--   **eta**: La tasa de aprendizaje óptima fue 0.1.
-    Este parámetro controla la magnitud de la actualización en cada ronda de boosting, y un valor de 0.1 sugiere que el modelo realiza actualizaciones más pequeñas, lo que generalmente conduce a una mejor generalización.
+eta: La tasa de aprendizaje óptima fue 0.1. Este parámetro controla la magnitud de la actualización en cada ronda de boosting, y un valor de 0.1 sugiere que el modelo realiza actualizaciones más pequeñas, lo que generalmente conduce a una mejor generalización.
 
--   **gamma**: El valor de gamma fue 0, lo que significa que no se requiere una ganancia mínima para realizar una partición adicional en un nodo de un árbol.
-    Esto permite una mayor flexibilidad en la construcción del árbol.
+gamma: El valor de gamma fue 0, lo que significa que no se requiere una ganancia mínima para realizar una partición adicional en un nodo de un árbol. Esto permite una mayor flexibilidad en la construcción del árbol.
 
--   **colsample_bytree**: La proporción de columnas usadas por árbol fue 0.7, lo que implica que el 70% de las características se utilizan para construir cada árbol.
-    Esto introduce diversidad en los árboles y mejora la generalización del modelo.
+colsample_bytree: La proporción de columnas usadas por árbol fue 0.7, lo que implica que el 70% de las características se utilizan para construir cada árbol. Esto introduce diversidad en los árboles y mejora la generalización del modelo.
 
--   **min_child_weight**: Este parámetro se optimizó a 1, lo que significa que un nodo se dividirá solo si su suma de pesos es al menos 1.
-    Este parámetro ayuda a controlar la complejidad del modelo y evitar el sobreajuste.
+min_child_weight: Este parámetro se optimizó a 1, lo que significa que un nodo se dividirá solo si su suma de pesos es al menos 1. Este parámetro ayuda a controlar la complejidad del modelo y evitar el sobreajuste.
 
--   **subsample**: La proporción de muestra fue 0.8, lo que significa que el 80% de los datos de entrenamiento se utilizan para construir cada árbol.
-    Esto introduce aleatoriedad y mejora la capacidad del modelo para generalizar.
+subsample: La proporción de muestra fue 0.8, lo que significa que el 80% de los datos de entrenamiento se utilizan para construir cada árbol. Esto introduce aleatoriedad y mejora la capacidad del modelo para generalizar.
 
-**Puntuación del Modelo (RMSE)**:
+Puntuación del Modelo (RMSE):
 
--   El RMSE del modelo es 2603.711.
-    Dado que la variable `valor_pagado` tiene una mediana de 33,696 y una media de 66,357, un RMSE de 2603.711 indica un buen rendimiento del modelo.
-    El RMSE representa aproximadamente el 7.7% de la mediana y el 3.9% de la media, lo que sugiere que el error de predicción es aceptable y que el modelo tiene una precisión razonable.
+El RMSE del modelo es 2603.711. Dado que la variable valor_pagado tiene una mediana de 33,696 y una media de 66,357, un RMSE de 2603.711 indica un buen rendimiento del modelo. El RMSE representa aproximadamente el 7.7% de la mediana y el 3.9% de la media, lo que sugiere que el error de predicción es aceptable y que el modelo tiene una precisión razonable.
 
-**Duración de la Búsqueda de Hiperparámetros**:
+Duración de la Búsqueda de Hiperparámetros:
 
--   La búsqueda de los hiperparámetros óptimos tomó 00:13:37 (13 minutos y 37 segundos).
-    Este tiempo incluye la evaluación de múltiples combinaciones de parámetros mediante validación cruzada.
-    Considerando la complejidad de la tarea y la cantidad de combinaciones evaluadas, este tiempo de ejecución es eficiente.
+La búsqueda de los hiperparámetros óptimos tomó 00:13:37 (13 minutos y 37 segundos). Este tiempo incluye la evaluación de múltiples combinaciones de parámetros mediante validación cruzada. Considerando la complejidad de la tarea y la cantidad de combinaciones evaluadas, este tiempo de ejecución es eficiente.
 
-# Testing de funcion usando testthat
+Testing de funcion usando testthat
 
-## Test de GridSearchCV
+Test de GridSearchCV
 
-```{r}
+{r}
 # Prueba de la función GridSearchCV 
 
 test_that("GridSearchCV_xgboost funciona correctamente", {
@@ -601,15 +569,12 @@ test_that("GridSearchCV_xgboost funciona correctamente", {
 
   
 
-```
 
-## Test de normalizar_data
+Test de normalizar_data
 
-Se realiza una prueba de la función `normalizar_data` utilizando `testthat`.
-Se carga un conjunto de datos de prueba y se aplica la función de normalización.
-La prueba verifica que las transformaciones y los resultados se han realizado correctamente, incluyendo la validación de las columnas y la duración del proceso.
+Se realiza una prueba de la función normalizar_data utilizando testthat. Se carga un conjunto de datos de prueba y se aplica la función de normalización. La prueba verifica que las transformaciones y los resultados se han realizado correctamente, incluyendo la validación de las columnas y la duración del proceso.
 
-```{r}
+{r}
 
 
 test_that("normalizar_data funciona correctamente con datos reales", {
@@ -682,21 +647,15 @@ test_that("normalizar_data funciona correctamente con datos reales", {
 
 
 
-```
 
-# Conclusión
+Conclusión
 
 En este proyecto, desarrollamos y validamos funciones en R para la normalización de datos y la búsqueda de hiperparámetros, enfocándonos en mejorar la eficiencia de los algoritmos de aprendizaje automático.
 
-***Función de Normalización***: La función `normalizar_data` transforma y limpia los conjuntos de datos, recodificando variables categóricas, normalizando valores y eliminando duplicados.
-La salida se estructuró como un objeto S3 para mayor flexibilidad.
-La función se validó exitosamente con datos reales, demostrando su robustez y precisión.
+Función de Normalización: La función normalizar_data transforma y limpia los conjuntos de datos, recodificando variables categóricas, normalizando valores y eliminando duplicados. La salida se estructuró como un objeto S3 para mayor flexibilidad. La función se validó exitosamente con datos reales, demostrando su robustez y precisión.
 
-***Búsqueda de Hiperparámetros***: Implementamos `GridSearchCV_xgboost`, que realiza la búsqueda de hiperparámetros utilizando validación cruzada para XGBoost.
-La función calcula dinámicamente los folds y devuelve los mejores hiperparámetros.
-El diseño S3 de la función facilita su extensibilidad y manejo intuitivo de resultados.
+Búsqueda de Hiperparámetros: Implementamos GridSearchCV_xgboost, que realiza la búsqueda de hiperparámetros utilizando validación cruzada para XGBoost. La función calcula dinámicamente los folds y devuelve los mejores hiperparámetros. El diseño S3 de la función facilita su extensibilidad y manejo intuitivo de resultados.
 
-***Pruebas y Validación***: Utilizamos `testthat` para validar las funciones, asegurando que las transformaciones y resultados de la búsqueda de hiperparámetros fueran correctos.
-Las pruebas incluyeron medidas de tiempo de ejecución, proporcionando información sobre la eficiencia de las funciones.
+Pruebas y Validación: Utilizamos testthat para validar las funciones, asegurando que las transformaciones y resultados de la búsqueda de hiperparámetros fueran correctos. Las pruebas incluyeron medidas de tiempo de ejecución, proporcionando información sobre la eficiencia de las funciones.
 
 Este trabajo establece una base sólida para futuros proyectos en data science, demostrando buenas prácticas en la estructuración y documentación de proyectos en R, y ofrece herramientas robustas para la normalización de datos y optimización de modelos.
